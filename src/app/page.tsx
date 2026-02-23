@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { LanguageProvider, useLanguage } from "@/lib/LanguageContext";
 import GameSetup from "@/components/GameSetup";
 import PlayerRoster from "@/components/PlayerRoster";
 import LiveDashboard from "@/components/LiveDashboard";
@@ -9,7 +10,9 @@ import BottomNav, { TabId } from "@/components/BottomNav";
 import { Player, GameConfig, MatchState, FIELD_SIZES } from "@/lib/types";
 import { initializeMatch } from "@/lib/engine";
 
-export default function Home() {
+function AppContent() {
+  const { t } = useLanguage();
+
   const [config, setConfig] = useState<GameConfig>({
     competitionType: "6v6",
     gameLengthMinutes: 20,
@@ -50,7 +53,6 @@ export default function Home() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg-primary">
-      {/* Main Content */}
       <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-5 pb-4 sm:px-5">
         {activeTab === "setup" && (
           <GameSetup
@@ -84,16 +86,16 @@ export default function Home() {
           <div className="flex flex-col items-center justify-center py-20 text-center animate-slide-up">
             <p className="text-5xl mb-4">⚽</p>
             <p className="text-lg font-semibold text-text-primary mb-2">
-              No Active Match
+              {t("noMatch.title")}
             </p>
             <p className="text-sm text-text-secondary mb-6">
-              Set up your game and add players first, then start the match.
+              {t("noMatch.description")}
             </p>
             <button
               onClick={() => setActiveTab("setup")}
               className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-bg-primary"
             >
-              Go to Setup
+              {t("noMatch.goToSetup")}
             </button>
           </div>
         )}
@@ -107,12 +109,19 @@ export default function Home() {
         )}
       </main>
 
-      {/* Bottom Navigation */}
       <BottomNav
         activeTab={activeTab}
         onTabChange={handleTabChange}
         isMatchLive={isMatchLive}
       />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 }

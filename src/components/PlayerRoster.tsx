@@ -6,13 +6,14 @@ import {
   Player,
   Position,
   PositionGroup,
-  CompetitionType,
   GameConfig,
   POSITIONS_BY_TYPE,
   FIELD_SIZES,
   getPositionGroup,
   POSITION_GROUP_COLORS,
 } from "@/lib/types";
+import { useLanguage } from "@/lib/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n";
 
 interface PlayerRosterProps {
   players: Player[];
@@ -20,11 +21,11 @@ interface PlayerRosterProps {
   onChange: (players: Player[]) => void;
 }
 
-const FILTER_TABS: { label: string; value: PositionGroup | "ALL" }[] = [
-  { label: "All Players", value: "ALL" },
-  { label: "Forward", value: "FW" },
-  { label: "Midfield", value: "MID" },
-  { label: "Defense", value: "DEF" },
+const FILTER_TABS: { key: TranslationKey; value: PositionGroup | "ALL" }[] = [
+  { key: "roster.allPlayers", value: "ALL" },
+  { key: "roster.forward", value: "FW" },
+  { key: "roster.midfield", value: "MID" },
+  { key: "roster.defense", value: "DEF" },
 ];
 
 function PositionBadge({ group }: { group: PositionGroup }) {
@@ -39,11 +40,8 @@ function PositionBadge({ group }: { group: PositionGroup }) {
   );
 }
 
-export default function PlayerRoster({
-  players,
-  config,
-  onChange,
-}: PlayerRosterProps) {
+export default function PlayerRoster({ players, config, onChange }: PlayerRosterProps) {
+  const { t } = useLanguage();
   const positions = POSITIONS_BY_TYPE[config.competitionType];
   const fieldSize = FIELD_SIZES[config.competitionType];
   const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
@@ -52,28 +50,18 @@ export default function PlayerRoster({
 
   const activePlayers = players.filter((p) => !p.isInjured && p.name.trim());
   const gkCount = players.filter((p) => p.isGK).length;
-  const avgMinutes =
-    activePlayers.length > 0
-      ? Math.round(
-          (config.gameLengthMinutes * fieldSize) / activePlayers.length
-        )
-      : 0;
+  const avgMinutes = activePlayers.length > 0
+    ? Math.round((config.gameLengthMinutes * fieldSize) / activePlayers.length)
+    : 0;
 
-  const filtered =
-    filter === "ALL"
-      ? players
-      : players.filter((p) => p.positionGroup === filter);
+  const filtered = filter === "ALL" ? players : players.filter((p) => p.positionGroup === filter);
 
   function addPlayer() {
     const defaultPos: Position = positions.includes("CM") ? "CM" : positions[0];
     const newPlayer: Player = {
-      id: uuidv4(),
-      name: "",
-      position: defaultPos,
+      id: uuidv4(), name: "", position: defaultPos,
       positionGroup: getPositionGroup(defaultPos),
-      desiredMinutes: null,
-      isInjured: false,
-      isGK: false,
+      desiredMinutes: null, isInjured: false, isGK: false,
     };
     onChange([...players, newPlayer]);
     setEditingId(newPlayer.id);
@@ -84,62 +72,39 @@ export default function PlayerRoster({
     if (!editingId || !draft.name?.trim()) return;
     const pos = (draft.position ?? "CM") as Position;
     const group = getPositionGroup(pos);
-    onChange(
-      players.map((p) =>
-        p.id === editingId
-          ? { ...p, ...draft, position: pos, positionGroup: group, isGK: pos === "GK" }
-          : p
-      )
-    );
+    onChange(players.map((p) =>
+      p.id === editingId
+        ? { ...p, ...draft, position: pos, positionGroup: group, isGK: pos === "GK" }
+        : p
+    ));
     setEditingId(null);
     setDraft({});
   }
 
   function cancelEdit() {
     const player = players.find((p) => p.id === editingId);
-    if (player && !player.name) {
-      onChange(players.filter((p) => p.id !== editingId));
-    }
+    if (player && !player.name) onChange(players.filter((p) => p.id !== editingId));
     setEditingId(null);
     setDraft({});
   }
 
-  function startEdit(player: Player) {
-    setEditingId(player.id);
-    setDraft({ ...player });
-  }
+  function startEdit(player: Player) { setEditingId(player.id); setDraft({ ...player }); }
 
   function removePlayer(id: string) {
     onChange(players.filter((p) => p.id !== id));
-    if (editingId === id) {
-      setEditingId(null);
-      setDraft({});
-    }
+    if (editingId === id) { setEditingId(null); setDraft({}); }
   }
 
   function toggleGK(id: string) {
-    onChange(
-      players.map((p) => {
-        if (p.id !== id) return p;
-        const newIsGK = !p.isGK;
-        return {
-          ...p,
-          isGK: newIsGK,
-          position: newIsGK ? ("GK" as Position) : ("CM" as Position),
-          positionGroup: newIsGK ? ("GK" as PositionGroup) : ("MID" as PositionGroup),
-        };
-      })
-    );
+    onChange(players.map((p) => {
+      if (p.id !== id) return p;
+      const newIsGK = !p.isGK;
+      return { ...p, isGK: newIsGK, position: newIsGK ? ("GK" as Position) : ("CM" as Position), positionGroup: newIsGK ? ("GK" as PositionGroup) : ("MID" as PositionGroup) };
+    }));
   }
 
   function toggleInjured(id: string) {
-    onChange(
-      players.map((p) => (p.id === id ? { ...p, isInjured: !p.isInjured } : p))
-    );
-  }
-
-  function resetAll() {
-    onChange([]);
+    onChange(players.map((p) => (p.id === id ? { ...p, isInjured: !p.isInjured } : p)));
   }
 
   return (
@@ -148,13 +113,10 @@ export default function PlayerRoster({
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <span className="text-accent text-lg">⚽</span>
-          <h1 className="text-xl font-bold text-text-primary">Roster</h1>
+          <h1 className="text-xl font-bold text-text-primary">{t("roster.title")}</h1>
         </div>
-        <button
-          onClick={resetAll}
-          className="text-sm font-semibold text-accent hover:text-accent-dim transition"
-        >
-          Reset All
+        <button onClick={() => onChange([])} className="text-sm font-semibold text-accent hover:text-accent-dim transition">
+          {t("roster.resetAll")}
         </button>
       </div>
 
@@ -171,7 +133,7 @@ export default function PlayerRoster({
                   : "bg-bg-card text-text-secondary border border-border-color hover:bg-bg-card-hover"
               }`}
             >
-              {tab.label}
+              {t(tab.key)}
             </button>
           ))}
           <div className="shrink-0 w-4" aria-hidden="true" />
@@ -181,11 +143,11 @@ export default function PlayerRoster({
       {/* Squad info */}
       <div className="flex items-center justify-between px-1">
         <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-          Match Squad ({activePlayers.length})
+          {t("roster.matchSquad")} ({activePlayers.length})
         </p>
         {activePlayers.length > 0 && (
           <p className="text-xs font-semibold text-accent">
-            Avg {avgMinutes}m / player
+            {t("roster.avgPerPlayer", { min: avgMinutes })}
           </p>
         )}
       </div>
@@ -194,21 +156,16 @@ export default function PlayerRoster({
       {filtered.length === 0 && players.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border-color py-16 text-center">
           <p className="text-4xl mb-3">⚽</p>
-          <p className="text-sm text-text-secondary">
-            No players yet. Tap + to add players.
-          </p>
+          <p className="text-sm text-text-secondary">{t("roster.noPlayers")}</p>
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map((player) => (
             <div key={player.id} className="animate-slide-up">
               {editingId === player.id ? (
-                /* Edit Mode */
                 <div className="rounded-2xl border border-accent/40 bg-bg-card p-3.5 sm:p-4 space-y-3">
                   <input
-                    type="text"
-                    autoFocus
-                    placeholder="Player name"
+                    type="text" autoFocus placeholder={t("roster.playerName")}
                     value={draft.name ?? ""}
                     onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                     onKeyDown={(e) => e.key === "Enter" && saveEdit()}
@@ -216,12 +173,10 @@ export default function PlayerRoster({
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs text-text-muted">Position</label>
+                      <label className="mb-1 block text-xs text-text-muted">{t("roster.position")}</label>
                       <select
                         value={draft.position ?? positions[0]}
-                        onChange={(e) =>
-                          setDraft({ ...draft, position: e.target.value as Position })
-                        }
+                        onChange={(e) => setDraft({ ...draft, position: e.target.value as Position })}
                         className="w-full rounded-xl border border-border-color bg-bg-elevated px-3 py-2.5 text-sm text-text-primary focus:border-accent focus:outline-none"
                       >
                         {positions.map((pos) => (
@@ -232,48 +187,28 @@ export default function PlayerRoster({
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-text-muted">Target Minutes</label>
+                      <label className="mb-1 block text-xs text-text-muted">{t("roster.targetMinutes")}</label>
                       <input
-                        type="number"
-                        min={1}
-                        max={config.gameLengthMinutes}
+                        type="number" min={1} max={config.gameLengthMinutes}
                         value={draft.desiredMinutes ?? ""}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            desiredMinutes: e.target.value ? parseInt(e.target.value) : null,
-                          })
-                        }
-                        placeholder="Auto"
+                        onChange={(e) => setDraft({ ...draft, desiredMinutes: e.target.value ? parseInt(e.target.value) : null })}
+                        placeholder={t("roster.auto")}
                         className="w-full rounded-xl border border-border-color bg-bg-elevated px-3 py-2.5 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none"
                       />
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={saveEdit}
-                      disabled={!draft.name?.trim()}
-                      className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-semibold text-bg-primary disabled:opacity-40"
-                    >
-                      Save
+                    <button onClick={saveEdit} disabled={!draft.name?.trim()} className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-semibold text-bg-primary disabled:opacity-40">
+                      {t("roster.save")}
                     </button>
-                    <button
-                      onClick={cancelEdit}
-                      className="flex-1 rounded-xl bg-bg-elevated py-2.5 text-sm font-semibold text-text-secondary"
-                    >
-                      Cancel
+                    <button onClick={cancelEdit} className="flex-1 rounded-xl bg-bg-elevated py-2.5 text-sm font-semibold text-text-secondary">
+                      {t("roster.cancel")}
                     </button>
                   </div>
                 </div>
               ) : (
-                /* Display Mode */
-                <div
-                  className={`rounded-2xl border bg-bg-card p-4 transition hover:bg-bg-card-hover ${
-                    player.isInjured ? "border-danger/40" : "border-border-color"
-                  }`}
-                >
+                <div className={`rounded-2xl border bg-bg-card p-4 transition hover:bg-bg-card-hover ${player.isInjured ? "border-danger/40" : "border-border-color"}`}>
                   <div className="flex items-center gap-3">
-                    {/* Avatar */}
                     <div className="relative shrink-0">
                       <div
                         className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold"
@@ -289,83 +224,54 @@ export default function PlayerRoster({
                         <PositionBadge group={player.positionGroup} />
                       </div>
                     </div>
-
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-text-primary truncate">
-                        {player.name || "Unnamed"}
+                        {player.name || t("roster.unnamed")}
                       </p>
                       {player.isGK ? (
-                        <p className="text-xs font-semibold text-gk flex items-center gap-1">
-                          ★ Primary Keeper
-                        </p>
+                        <p className="text-xs font-semibold text-gk flex items-center gap-1">{t("roster.primaryKeeper")}</p>
                       ) : (
                         <p className="text-xs text-text-muted flex items-center gap-1">
                           <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          Target: {player.desiredMinutes ?? config.gameLengthMinutes} mins
+                          {t("roster.target", { min: player.desiredMinutes ?? config.gameLengthMinutes })}
                         </p>
                       )}
                       {player.isInjured && (
-                        <p className="text-xs font-semibold text-danger mt-0.5">
-                          🚑 Injured
-                        </p>
+                        <p className="text-xs font-semibold text-danger mt-0.5">{t("roster.injured")}</p>
                       )}
                     </div>
-
-                    {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {/* GK Toggle */}
                       <div className="text-center">
                         <button
                           onClick={() => toggleGK(player.id)}
                           disabled={!player.isGK && gkCount >= 1}
-                          className={`relative h-7 w-12 rounded-full transition-colors ${
-                            player.isGK ? "bg-gk" : "bg-bg-elevated"
-                          } disabled:opacity-30`}
+                          className={`relative h-7 w-12 rounded-full transition-colors ${player.isGK ? "bg-gk" : "bg-bg-elevated"} disabled:opacity-30`}
                         >
-                          <span
-                            className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
-                              player.isGK ? "translate-x-5.5" : "translate-x-0.5"
-                            }`}
-                          />
+                          <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${player.isGK ? "translate-x-5.5" : "translate-x-0.5"}`} />
                           {player.isGK && (
-                            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-gk text-[8px] text-white font-bold">
-                              🧤
-                            </span>
+                            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-gk text-[8px] text-white font-bold">🧤</span>
                           )}
                         </button>
                         <p className="text-[9px] text-text-muted mt-1 uppercase tracking-wider">
-                          {player.isGK ? "GK Active" : "GK Status"}
+                          {player.isGK ? t("roster.gkActive") : t("roster.gkStatus")}
                         </p>
                       </div>
                     </div>
                   </div>
-
-                  {/* Action row */}
                   <div className="flex items-center justify-end gap-1.5 mt-2 pt-2 border-t border-border-color/50">
-                    <button
-                      onClick={() => startEdit(player)}
-                      className="min-h-[36px] rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-accent hover:bg-accent/10 active:bg-accent/15 transition"
-                    >
-                      Edit
+                    <button onClick={() => startEdit(player)} className="min-h-[36px] rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-accent hover:bg-accent/10 active:bg-accent/15 transition">
+                      {t("roster.edit")}
                     </button>
                     <button
                       onClick={() => toggleInjured(player.id)}
-                      className={`min-h-[36px] rounded-lg px-3 py-2 text-xs font-medium transition ${
-                        player.isInjured
-                          ? "text-danger hover:bg-danger/10 active:bg-danger/15"
-                          : "text-text-secondary hover:text-warning hover:bg-warning/10 active:bg-warning/15"
-                      }`}
+                      className={`min-h-[36px] rounded-lg px-3 py-2 text-xs font-medium transition ${player.isInjured ? "text-danger hover:bg-danger/10 active:bg-danger/15" : "text-text-secondary hover:text-warning hover:bg-warning/10 active:bg-warning/15"}`}
                     >
-                      {player.isInjured ? "Mark Fit" : "Injury"}
+                      {player.isInjured ? t("roster.markFit") : t("roster.injury")}
                     </button>
-                    <button
-                      onClick={() => removePlayer(player.id)}
-                      className="min-h-[36px] rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-danger hover:bg-danger/10 active:bg-danger/15 transition"
-                    >
-                      Remove
+                    <button onClick={() => removePlayer(player.id)} className="min-h-[36px] rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-danger hover:bg-danger/10 active:bg-danger/15 transition">
+                      {t("roster.remove")}
                     </button>
                   </div>
                 </div>
