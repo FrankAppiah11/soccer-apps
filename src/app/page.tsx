@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useUser, UserButton } from "@clerk/nextjs";
 import { LanguageProvider, useLanguage } from "@/lib/LanguageContext";
+import { AuthProvider } from "@/lib/AuthContext";
+import { usePersistence } from "@/lib/usePersistence";
 import GameSetup from "@/components/GameSetup";
 import PlayerRoster from "@/components/PlayerRoster";
 import LiveDashboard from "@/components/LiveDashboard";
@@ -24,10 +27,33 @@ function AppContent() {
   const [matchState, setMatchState] = useState<MatchState | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("setup");
 
+  const { loaded, saveConfig, savePlayers, saveMatch } = usePersistence(
+    config,
+    setConfig,
+    players,
+    setPlayers
+  );
+
   const isMatchLive = matchState !== null && matchState.isRunning;
   const fieldSize = FIELD_SIZES[config.competitionType];
   const namedActive = players.filter((p) => p.name.trim() && !p.isInjured);
   const canStart = namedActive.length >= fieldSize;
+
+  const handleConfigChange = useCallback(
+    (c: GameConfig) => {
+      setConfig(c);
+      saveConfig(c);
+    },
+    [saveConfig]
+  );
+
+  const handlePlayersChange = useCallback(
+    (p: Player[]) => {
+      setPlayers(p);
+      savePlayers(p);
+    },
+    [savePlayers]
+  );
 
   const handleStartMatch = useCallback(() => {
     const validPlayers = players.filter((p) => p.name.trim());
@@ -38,10 +64,34 @@ function AppContent() {
 
   const handleEndMatch = useCallback(() => {
     if (matchState) {
-      setMatchState({ ...matchState, isRunning: false, isPaused: true });
+      const endedState = { ...matchState, isRunning: false, isPaused: true };
+      setMatchState(endedState);
+
+      const events = matchState.substitutionLog.map((sub) => {
+        const outP = players.find((p) => p.id === sub.playerOutId);
+        const inP = players.find((p) => p.id === sub.playerInId);
+        return {
+          eventType: "substitution",
+          minute: sub.minute,
+          second: sub.second,
+          playerOutId: sub.playerOutId,
+          playerInId: sub.playerInId,
+          playerOutName: outP?.name ?? "Unknown",
+          playerInName: inP?.name ?? "Unknown",
+        };
+      });
+
+      saveMatch({
+        competitionType: config.competitionType,
+        gameLengthMinutes: config.gameLengthMinutes,
+        playerCount: players.filter((p) => p.name.trim()).length,
+        totalSubs: matchState.substitutionLog.length,
+        endedAt: new Date().toISOString(),
+        events,
+      });
     }
     setActiveTab("stats");
-  }, [matchState]);
+  }, [matchState, players, config, saveMatch]);
 
   const handleMatchStateChange = useCallback((state: MatchState) => {
     setMatchState(state);
@@ -51,13 +101,40 @@ function AppContent() {
     setActiveTab(tab);
   }, []);
 
+  if (!loaded) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-bg-primary">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          <p className="text-sm text-text-secondary">Loading your data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-dvh flex-col bg-bg-primary">
-      <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-5 pb-4 sm:px-5">
+      <header className="mx-auto flex w-full max-w-lg items-center justify-between px-4 pt-3 sm:px-5">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">⚽</span>
+          <span className="text-sm font-bold text-text-primary tracking-wide">
+            SubManager
+          </span>
+        </div>
+        <UserButton
+          appearance={{
+            elements: {
+              avatarBox: "h-8 w-8",
+            },
+          }}
+        />
+      </header>
+
+      <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-3 pb-4 sm:px-5">
         {activeTab === "setup" && (
           <GameSetup
             config={config}
-            onChange={setConfig}
+            onChange={handleConfigChange}
             onStartMatch={handleStartMatch}
             canStart={canStart}
             playerCount={namedActive.length}
@@ -68,7 +145,7 @@ function AppContent() {
           <PlayerRoster
             players={players}
             config={config}
-            onChange={setPlayers}
+            onChange={handlePlayersChange}
           />
         )}
 
@@ -118,10 +195,22 @@ function AppContent() {
   );
 }
 
+function AuthBridge({ children }: { children: React.ReactNode }) {
+  const { isSignedIn, user } = useUser();
+
+  return (
+    <AuthProvider isSignedIn={isSignedIn ?? false} userId={user?.id ?? null}>
+      {children}
+    </AuthProvider>
+  );
+}
+
 export default function Home() {
   return (
-    <LanguageProvider>
-      <AppContent />
-    </LanguageProvider>
+    <AuthBridge>
+      <LanguageProvider>
+        <AppContent />
+      </LanguageProvider>
+    </AuthBridge>
   );
 }
