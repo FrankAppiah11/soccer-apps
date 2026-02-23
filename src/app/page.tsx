@@ -3,109 +3,116 @@
 import { useState, useCallback } from "react";
 import GameSetup from "@/components/GameSetup";
 import PlayerRoster from "@/components/PlayerRoster";
-import SubstitutionTimeline from "@/components/SubstitutionTimeline";
-import { Player, GameConfig, SubstitutionPlan, FIELD_SIZES } from "@/lib/types";
-import { generateSubstitutionPlan } from "@/lib/engine";
+import LiveDashboard from "@/components/LiveDashboard";
+import StatsView from "@/components/StatsView";
+import BottomNav, { TabId } from "@/components/BottomNav";
+import { Player, GameConfig, MatchState, FIELD_SIZES } from "@/lib/types";
+import { initializeMatch } from "@/lib/engine";
 
 export default function Home() {
   const [config, setConfig] = useState<GameConfig>({
     competitionType: "6v6",
     gameLengthMinutes: 20,
+    equalPlaytime: true,
+    subAlerts: false,
   });
 
   const [players, setPlayers] = useState<Player[]>([]);
-  const [plan, setPlan] = useState<SubstitutionPlan | null>(null);
+  const [matchState, setMatchState] = useState<MatchState | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("setup");
 
+  const isMatchLive = matchState !== null && matchState.isRunning;
   const fieldSize = FIELD_SIZES[config.competitionType];
-  const activePlayers = players.filter((p) => !p.isInjured);
-  const namedPlayers = activePlayers.filter((p) => p.name.trim());
-  const canGenerate = namedPlayers.length >= fieldSize;
+  const namedActive = players.filter((p) => p.name.trim() && !p.isInjured);
+  const canStart = namedActive.length >= fieldSize;
 
-  const handleGenerate = useCallback(() => {
-    const valid = players.filter((p) => p.name.trim());
-    const result = generateSubstitutionPlan(valid, config);
-    setPlan(result);
+  const handleStartMatch = useCallback(() => {
+    const validPlayers = players.filter((p) => p.name.trim());
+    const state = initializeMatch(validPlayers, config);
+    setMatchState(state);
+    setActiveTab("game");
   }, [players, config]);
 
-  const handleConfigChange = useCallback((newConfig: GameConfig) => {
-    setConfig(newConfig);
-    setPlan(null);
+  const handleEndMatch = useCallback(() => {
+    if (matchState) {
+      setMatchState({ ...matchState, isRunning: false, isPaused: true });
+    }
+    setActiveTab("stats");
+  }, [matchState]);
+
+  const handleMatchStateChange = useCallback((state: MatchState) => {
+    setMatchState(state);
   }, []);
 
-  const handlePlayersChange = useCallback((newPlayers: Player[]) => {
-    setPlayers(newPlayers);
-    setPlan(null);
+  const handleTabChange = useCallback((tab: TabId) => {
+    setActiveTab(tab);
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-emerald-50/30">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-lg text-white">
-              &#9917;
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">SubManager</h1>
-              <p className="text-xs text-gray-500">
-                Fair substitutions for pickup games
-              </p>
-            </div>
-          </div>
-          {plan && (
+    <div className="flex min-h-dvh flex-col bg-bg-primary">
+      {/* Main Content */}
+      <main className="mx-auto w-full max-w-lg flex-1 px-5 pt-6 pb-4">
+        {activeTab === "setup" && (
+          <GameSetup
+            config={config}
+            onChange={setConfig}
+            onStartMatch={handleStartMatch}
+            canStart={canStart}
+            playerCount={namedActive.length}
+          />
+        )}
+
+        {activeTab === "roster" && (
+          <PlayerRoster
+            players={players}
+            config={config}
+            onChange={setPlayers}
+          />
+        )}
+
+        {activeTab === "game" && matchState && (
+          <LiveDashboard
+            players={players}
+            config={config}
+            matchState={matchState}
+            onMatchStateChange={handleMatchStateChange}
+            onEndMatch={handleEndMatch}
+          />
+        )}
+
+        {activeTab === "game" && !matchState && (
+          <div className="flex flex-col items-center justify-center py-20 text-center animate-slide-up">
+            <p className="text-5xl mb-4">⚽</p>
+            <p className="text-lg font-semibold text-text-primary mb-2">
+              No Active Match
+            </p>
+            <p className="text-sm text-text-secondary mb-6">
+              Set up your game and add players first, then start the match.
+            </p>
             <button
-              onClick={() => setPlan(null)}
-              className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-200"
+              onClick={() => setActiveTab("setup")}
+              className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-bg-primary"
             >
-              &#8592; Edit
+              Go to Setup
             </button>
-          )}
-        </div>
-      </header>
+          </div>
+        )}
 
-      <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
-        {!plan ? (
-          <>
-            <GameSetup config={config} onChange={handleConfigChange} />
-            <PlayerRoster
-              players={players}
-              competitionType={config.competitionType}
-              gameLengthMinutes={config.gameLengthMinutes}
-              onChange={handlePlayersChange}
-            />
-
-            {/* Generate button */}
-            <div className="flex flex-col items-center gap-2">
-              {!canGenerate && namedPlayers.length > 0 && (
-                <p className="text-sm text-amber-600">
-                  Need at least {fieldSize} active players for{" "}
-                  {config.competitionType} (have {namedPlayers.length})
-                </p>
-              )}
-              <button
-                onClick={handleGenerate}
-                disabled={!canGenerate}
-                className="rounded-xl bg-emerald-600 px-8 py-3 text-base font-semibold text-white shadow-lg shadow-emerald-600/25 transition hover:bg-emerald-700 hover:shadow-emerald-700/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
-              >
-                Generate Substitution Plan
-              </button>
-              {canGenerate && (
-                <p className="text-xs text-gray-500">
-                  {namedPlayers.length} players &middot; {fieldSize} on field
-                  &middot; {config.gameLengthMinutes} min game
-                </p>
-              )}
-            </div>
-          </>
-        ) : (
-          <SubstitutionTimeline plan={plan} config={config} />
+        {activeTab === "stats" && (
+          <StatsView
+            players={players}
+            matchState={matchState}
+            config={config}
+          />
         )}
       </main>
 
-      <footer className="mt-auto border-t border-gray-200 bg-white/60 py-4 text-center text-xs text-gray-400">
-        SubManager &mdash; Equal play time, every game.
-      </footer>
+      {/* Bottom Navigation */}
+      <BottomNav
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        isMatchLive={isMatchLive}
+      />
     </div>
   );
 }

@@ -1,145 +1,220 @@
 import {
   Player,
   GameConfig,
-  SubstitutionPlan,
+  LivePlayerState,
+  MatchState,
   SubstitutionEvent,
-  PlayerScheduleEntry,
   FIELD_SIZES,
 } from "./types";
+import { v4 as uuidv4 } from "uuid";
 
-/**
- * Generates a fair substitution plan that balances playing time across all players.
- *
- * Strategy: divide the game into equal-length windows. In each window, pick the
- * players with the fewest accumulated minutes so far (respecting GK lock rules).
- * GKs stay on the whole game unless injured.
- */
-export function generateSubstitutionPlan(
+export function initializeMatch(
   players: Player[],
   config: GameConfig
-): SubstitutionPlan {
+): MatchState {
   const fieldSize = FIELD_SIZES[config.competitionType];
-  const gameLength = config.gameLengthMinutes;
-
-  const activePlayers = players.filter((p) => !p.isInjured);
-  const injuredPlayers = players.filter((p) => p.isInjured);
-
-  const goalkeepers = activePlayers.filter((p) => p.isGK);
-  const outfieldPlayers = activePlayers.filter((p) => !p.isGK);
-
-  const gk = goalkeepers[0] ?? null;
+  const activePlayers = players.filter((p) => !p.isInjured && p.name.trim());
+  const gk = activePlayers.find((p) => p.isGK);
+  const outfield = activePlayers.filter((p) => !p.isGK);
   const outfieldSlots = gk ? fieldSize - 1 : fieldSize;
 
-  if (outfieldPlayers.length === 0) {
-    return { schedule: [], substitutions: [], startingLineup: [], bench: [] };
-  }
+  const totalActive = activePlayers.length;
+  const gameLengthSec = config.gameLengthMinutes * 60;
+  const rotationInterval = totalActive > fieldSize
+    ? Math.floor(gameLengthSec / Math.ceil(totalActive / fieldSize))
+    : gameLengthSec;
 
-  if (outfieldPlayers.length <= outfieldSlots) {
-    const starting = gk ? [gk, ...outfieldPlayers] : [...outfieldPlayers];
-    const schedule: PlayerScheduleEntry[] = starting.map((p) => ({
-      player: p,
-      intervals: [{ start: 0, end: gameLength }],
-      totalMinutes: gameLength,
-    }));
-    return { schedule, substitutions: [], startingLineup: starting, bench: [] };
-  }
+  const startingOutfield = outfield.slice(0, outfieldSlots);
+  const benchOutfield = outfield.slice(outfieldSlots);
 
-  const numWindows = Math.max(
-    2,
-    Math.min(
-      Math.ceil(outfieldPlayers.length / outfieldSlots) + 1,
-      Math.floor(gameLength / 2)
-    )
-  );
-  const windowLength = gameLength / numWindows;
-
-  const minutesPlayed: Map<string, number> = new Map();
-  const intervals: Map<string, { start: number; end: number }[]> = new Map();
-
-  for (const p of outfieldPlayers) {
-    minutesPlayed.set(p.id, 0);
-    intervals.set(p.id, []);
-  }
-
-  if (gk) {
-    minutesPlayed.set(gk.id, 0);
-    intervals.set(gk.id, []);
-  }
-
-  const substitutions: SubstitutionEvent[] = [];
-  let currentOnField: Set<string> = new Set();
-
-  for (let w = 0; w < numWindows; w++) {
-    const windowStart = Math.round(w * windowLength);
-    const windowEnd = Math.round((w + 1) * windowLength);
-    const windowDuration = windowEnd - windowStart;
-
-    const sorted = [...outfieldPlayers].sort((a, b) => {
-      const aMin = minutesPlayed.get(a.id)!;
-      const bMin = minutesPlayed.get(b.id)!;
-      if (aMin !== bMin) return aMin - bMin;
-      const aDesired = a.desiredMinutes ?? gameLength;
-      const bDesired = b.desiredMinutes ?? gameLength;
-      return bDesired - aDesired;
-    });
-
-    const selectedIds = new Set(sorted.slice(0, outfieldSlots).map((p) => p.id));
-
-    if (w > 0) {
-      const prevOnField = new Set(currentOnField);
-      const goingOff = [...prevOnField].filter((id) => !selectedIds.has(id));
-      const comingOn = [...selectedIds].filter((id) => !prevOnField.has(id));
-
-      for (let i = 0; i < Math.min(goingOff.length, comingOn.length); i++) {
-        const outPlayer = outfieldPlayers.find((p) => p.id === goingOff[i])!;
-        const inPlayer = outfieldPlayers.find((p) => p.id === comingOn[i])!;
-        substitutions.push({
-          minute: windowStart,
-          playerOut: outPlayer,
-          playerIn: inPlayer,
-        });
-      }
-    }
-
-    currentOnField = selectedIds;
-
-    for (const id of selectedIds) {
-      minutesPlayed.set(id, (minutesPlayed.get(id) ?? 0) + windowDuration);
-      const playerIntervals = intervals.get(id)!;
-      const last = playerIntervals[playerIntervals.length - 1];
-      if (last && last.end === windowStart) {
-        last.end = windowEnd;
-      } else {
-        playerIntervals.push({ start: windowStart, end: windowEnd });
-      }
-    }
-
-    if (gk) {
-      minutesPlayed.set(gk.id, (minutesPlayed.get(gk.id) ?? 0) + windowDuration);
-      const gkIntervals = intervals.get(gk.id)!;
-      const last = gkIntervals[gkIntervals.length - 1];
-      if (last && last.end === windowStart) {
-        last.end = windowEnd;
-      } else {
-        gkIntervals.push({ start: windowStart, end: windowEnd });
-      }
-    }
-  }
-
-  const allActive = gk ? [gk, ...outfieldPlayers] : outfieldPlayers;
-  const schedule: PlayerScheduleEntry[] = allActive.map((p) => ({
-    player: p,
-    intervals: intervals.get(p.id) ?? [],
-    totalMinutes: minutesPlayed.get(p.id) ?? 0,
-  }));
-
-  const startingLineup = allActive.filter((p) =>
-    schedule.find((s) => s.player.id === p.id)?.intervals.some((i) => i.start === 0)
-  );
-  const bench = [
-    ...allActive.filter((p) => !startingLineup.includes(p)),
-    ...injuredPlayers,
+  const onFieldIds = [
+    ...(gk ? [gk.id] : []),
+    ...startingOutfield.map((p) => p.id),
+  ];
+  const benchIds = [
+    ...benchOutfield.map((p) => p.id),
+    ...players.filter((p) => p.isInjured).map((p) => p.id),
   ];
 
-  return { schedule, substitutions, startingLineup, bench };
+  const playerStates: Record<string, LivePlayerState> = {};
+  for (const p of activePlayers) {
+    playerStates[p.id] = {
+      playerId: p.id,
+      isOnField: onFieldIds.includes(p.id),
+      totalSecondsPlayed: 0,
+      currentStintStart: onFieldIds.includes(p.id) ? 0 : null,
+      rotationIntervalSeconds: rotationInterval,
+    };
+  }
+
+  return {
+    isRunning: false,
+    isPaused: false,
+    elapsedSeconds: 0,
+    half: 1,
+    onFieldIds,
+    benchIds: benchIds.filter((id) => playerStates[id]),
+    playerStates,
+    substitutionLog: [],
+  };
+}
+
+export function performSubstitution(
+  state: MatchState,
+  playerOutId: string,
+  playerInId: string
+): MatchState {
+  const elapsed = state.elapsedSeconds;
+  const outState = state.playerStates[playerOutId];
+  const inState = state.playerStates[playerInId];
+  if (!outState || !inState) return state;
+
+  const updatedOutState: LivePlayerState = {
+    ...outState,
+    isOnField: false,
+    totalSecondsPlayed:
+      outState.totalSecondsPlayed +
+      (outState.currentStintStart !== null
+        ? elapsed - outState.currentStintStart
+        : 0),
+    currentStintStart: null,
+  };
+
+  const updatedInState: LivePlayerState = {
+    ...inState,
+    isOnField: true,
+    currentStintStart: elapsed,
+  };
+
+  const subEvent: SubstitutionEvent = {
+    id: uuidv4(),
+    minute: Math.floor(elapsed / 60),
+    second: elapsed % 60,
+    playerOutId,
+    playerInId,
+    timestamp: elapsed,
+  };
+
+  return {
+    ...state,
+    onFieldIds: state.onFieldIds
+      .filter((id) => id !== playerOutId)
+      .concat(playerInId),
+    benchIds: state.benchIds
+      .filter((id) => id !== playerInId)
+      .concat(playerOutId),
+    playerStates: {
+      ...state.playerStates,
+      [playerOutId]: updatedOutState,
+      [playerInId]: updatedInState,
+    },
+    substitutionLog: [...state.substitutionLog, subEvent],
+  };
+}
+
+export function undoLastSubstitution(state: MatchState): MatchState {
+  const log = state.substitutionLog;
+  if (log.length === 0) return state;
+
+  const lastSub = log[log.length - 1];
+  const elapsed = state.elapsedSeconds;
+
+  const outState = state.playerStates[lastSub.playerOutId];
+  const inState = state.playerStates[lastSub.playerInId];
+  if (!outState || !inState) return state;
+
+  const restoredOutState: LivePlayerState = {
+    ...outState,
+    isOnField: true,
+    currentStintStart: elapsed,
+  };
+
+  const restoredInState: LivePlayerState = {
+    ...inState,
+    isOnField: false,
+    totalSecondsPlayed:
+      inState.totalSecondsPlayed +
+      (inState.currentStintStart !== null
+        ? elapsed - inState.currentStintStart
+        : 0),
+    currentStintStart: null,
+  };
+
+  return {
+    ...state,
+    onFieldIds: state.onFieldIds
+      .filter((id) => id !== lastSub.playerInId)
+      .concat(lastSub.playerOutId),
+    benchIds: state.benchIds
+      .filter((id) => id !== lastSub.playerOutId)
+      .concat(lastSub.playerInId),
+    playerStates: {
+      ...state.playerStates,
+      [lastSub.playerOutId]: restoredOutState,
+      [lastSub.playerInId]: restoredInState,
+    },
+    substitutionLog: log.slice(0, -1),
+  };
+}
+
+export function getPlayerPlayedSeconds(
+  pState: LivePlayerState,
+  elapsedSeconds: number
+): number {
+  let total = pState.totalSecondsPlayed;
+  if (pState.isOnField && pState.currentStintStart !== null) {
+    total += elapsedSeconds - pState.currentStintStart;
+  }
+  return total;
+}
+
+export function formatTime(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+export function getNextSubSuggestion(
+  state: MatchState,
+  players: Player[]
+): { outId: string; inId: string } | null {
+  const benchActive = state.benchIds.filter((id) => {
+    const p = players.find((pl) => pl.id === id);
+    return p && !p.isInjured && !p.isGK;
+  });
+  if (benchActive.length === 0) return null;
+
+  const onFieldOutfield = state.onFieldIds.filter((id) => {
+    const p = players.find((pl) => pl.id === id);
+    return p && !p.isGK;
+  });
+  if (onFieldOutfield.length === 0) return null;
+
+  let maxPlayed = -1;
+  let outId = onFieldOutfield[0];
+  for (const id of onFieldOutfield) {
+    const played = getPlayerPlayedSeconds(
+      state.playerStates[id],
+      state.elapsedSeconds
+    );
+    if (played > maxPlayed) {
+      maxPlayed = played;
+      outId = id;
+    }
+  }
+
+  let minPlayed = Infinity;
+  let inId = benchActive[0];
+  for (const id of benchActive) {
+    const played = getPlayerPlayedSeconds(
+      state.playerStates[id],
+      state.elapsedSeconds
+    );
+    if (played < minPlayed) {
+      minPlayed = played;
+      inId = id;
+    }
+  }
+
+  return { outId, inId };
 }

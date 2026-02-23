@@ -5,39 +5,72 @@ import { v4 as uuidv4 } from "uuid";
 import {
   Player,
   Position,
+  PositionGroup,
   CompetitionType,
+  GameConfig,
   POSITIONS_BY_TYPE,
   FIELD_SIZES,
+  getPositionGroup,
+  POSITION_GROUP_COLORS,
 } from "@/lib/types";
 
 interface PlayerRosterProps {
   players: Player[];
-  competitionType: CompetitionType;
-  gameLengthMinutes: number;
+  config: GameConfig;
   onChange: (players: Player[]) => void;
+}
+
+const FILTER_TABS: { label: string; value: PositionGroup | "ALL" }[] = [
+  { label: "All Players", value: "ALL" },
+  { label: "Forward", value: "FW" },
+  { label: "Midfield", value: "MID" },
+  { label: "Defense", value: "DEF" },
+];
+
+function PositionBadge({ group }: { group: PositionGroup }) {
+  const color = POSITION_GROUP_COLORS[group];
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase"
+      style={{ backgroundColor: color + "25", color }}
+    >
+      {group}
+    </span>
+  );
 }
 
 export default function PlayerRoster({
   players,
-  competitionType,
-  gameLengthMinutes,
+  config,
   onChange,
 }: PlayerRosterProps) {
-  const positions = POSITIONS_BY_TYPE[competitionType];
-  const fieldSize = FIELD_SIZES[competitionType];
-
+  const positions = POSITIONS_BY_TYPE[config.competitionType];
+  const fieldSize = FIELD_SIZES[config.competitionType];
+  const [filter, setFilter] = useState<PositionGroup | "ALL">("ALL");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<Player>>({});
 
-  const activePlayers = players.filter((p) => !p.isInjured);
-  const gkCount = activePlayers.filter((p) => p.isGK).length;
+  const activePlayers = players.filter((p) => !p.isInjured && p.name.trim());
+  const gkCount = players.filter((p) => p.isGK).length;
+  const avgMinutes =
+    activePlayers.length > 0
+      ? Math.round(
+          (config.gameLengthMinutes * fieldSize) / activePlayers.length
+        )
+      : 0;
+
+  const filtered =
+    filter === "ALL"
+      ? players
+      : players.filter((p) => p.positionGroup === filter);
 
   function addPlayer() {
-    const defaultPosition = positions.includes("CM") ? "CM" : positions[0];
+    const defaultPos: Position = positions.includes("CM") ? "CM" : positions[0];
     const newPlayer: Player = {
       id: uuidv4(),
       name: "",
-      position: defaultPosition,
+      position: defaultPos,
+      positionGroup: getPositionGroup(defaultPos),
       desiredMinutes: null,
       isInjured: false,
       isGK: false,
@@ -48,10 +81,14 @@ export default function PlayerRoster({
   }
 
   function saveEdit() {
-    if (!editingId) return;
+    if (!editingId || !draft.name?.trim()) return;
+    const pos = (draft.position ?? "CM") as Position;
+    const group = getPositionGroup(pos);
     onChange(
       players.map((p) =>
-        p.id === editingId ? { ...p, ...draft, isGK: draft.position === "GK" } : p
+        p.id === editingId
+          ? { ...p, ...draft, position: pos, positionGroup: group, isGK: pos === "GK" }
+          : p
       )
     );
     setEditingId(null);
@@ -80,114 +117,132 @@ export default function PlayerRoster({
     }
   }
 
+  function toggleGK(id: string) {
+    onChange(
+      players.map((p) => {
+        if (p.id !== id) return p;
+        const newIsGK = !p.isGK;
+        return {
+          ...p,
+          isGK: newIsGK,
+          position: newIsGK ? ("GK" as Position) : ("CM" as Position),
+          positionGroup: newIsGK ? ("GK" as PositionGroup) : ("MID" as PositionGroup),
+        };
+      })
+    );
+  }
+
   function toggleInjured(id: string) {
     onChange(
       players.map((p) => (p.id === id ? { ...p, isInjured: !p.isInjured } : p))
     );
   }
 
+  function resetAll() {
+    onChange([]);
+  }
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Players</h2>
-          <p className="text-sm text-gray-500">
-            {activePlayers.length} active &middot; {fieldSize} on field
-          </p>
+    <div className="flex flex-col gap-4 pb-24 animate-slide-up">
+      {/* Header */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <span className="text-accent text-lg">⚽</span>
+          <h1 className="text-xl font-bold text-text-primary">Roster</h1>
         </div>
         <button
-          onClick={addPlayer}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700"
+          onClick={resetAll}
+          className="text-sm font-semibold text-accent hover:text-accent-dim transition"
         >
-          + Add Player
+          Reset All
         </button>
       </div>
 
-      {players.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
-          <div className="mb-2 text-4xl">&#9917;</div>
-          <p className="text-sm text-gray-500">
-            No players yet. Add players to get started.
+      {/* Filter Tabs */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar">
+        {FILTER_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setFilter(tab.value)}
+            className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${
+              filter === tab.value
+                ? "bg-accent text-bg-primary"
+                : "bg-bg-card text-text-secondary border border-border-color hover:bg-bg-card-hover"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Squad info */}
+      <div className="flex items-center justify-between px-1">
+        <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+          Match Squad ({activePlayers.length})
+        </p>
+        {activePlayers.length > 0 && (
+          <p className="text-xs font-semibold text-accent">
+            Avg {avgMinutes}m / player
+          </p>
+        )}
+      </div>
+
+      {/* Player list */}
+      {filtered.length === 0 && players.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border-color py-16 text-center">
+          <p className="text-4xl mb-3">⚽</p>
+          <p className="text-sm text-text-secondary">
+            No players yet. Tap + to add players.
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {players.map((player, index) => (
-            <div
-              key={player.id}
-              className={`rounded-xl border p-4 transition ${
-                player.isInjured
-                  ? "border-red-200 bg-red-50"
-                  : "border-gray-100 bg-gray-50 hover:border-gray-200"
-              }`}
-            >
+        <div className="space-y-3">
+          {filtered.map((player) => (
+            <div key={player.id} className="animate-slide-up">
               {editingId === player.id ? (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                /* Edit Mode */
+                <div className="rounded-2xl border border-accent/40 bg-bg-card p-4 space-y-3">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Player name"
+                    value={draft.name ?? ""}
+                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                    className="w-full rounded-xl border border-border-color bg-bg-elevated px-4 py-3 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        autoFocus
-                        value={draft.name ?? ""}
-                        onChange={(e) =>
-                          setDraft({ ...draft, name: e.target.value })
-                        }
-                        onKeyDown={(e) => e.key === "Enter" && saveEdit()}
-                        placeholder="Player name"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">
-                        Position
-                      </label>
+                      <label className="mb-1 block text-xs text-text-muted">Position</label>
                       <select
                         value={draft.position ?? positions[0]}
                         onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            position: e.target.value as Position,
-                          })
+                          setDraft({ ...draft, position: e.target.value as Position })
                         }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                        className="w-full rounded-xl border border-border-color bg-bg-elevated px-3 py-2.5 text-sm text-text-primary focus:border-accent focus:outline-none"
                       >
                         {positions.map((pos) => (
-                          <option
-                            key={pos}
-                            value={pos}
-                            disabled={
-                              pos === "GK" &&
-                              gkCount >= 1 &&
-                              player.position !== "GK"
-                            }
-                          >
+                          <option key={pos} value={pos} disabled={pos === "GK" && gkCount >= 1 && player.position !== "GK"}>
                             {pos}
                           </option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">
-                        Minutes (blank = equal share)
-                      </label>
+                      <label className="mb-1 block text-xs text-text-muted">Target Minutes</label>
                       <input
                         type="number"
                         min={1}
-                        max={gameLengthMinutes}
+                        max={config.gameLengthMinutes}
                         value={draft.desiredMinutes ?? ""}
                         onChange={(e) =>
                           setDraft({
                             ...draft,
-                            desiredMinutes: e.target.value
-                              ? parseInt(e.target.value)
-                              : null,
+                            desiredMinutes: e.target.value ? parseInt(e.target.value) : null,
                           })
                         }
                         placeholder="Auto"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                        className="w-full rounded-xl border border-border-color bg-bg-elevated px-3 py-2.5 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none"
                       />
                     </div>
                   </div>
@@ -195,72 +250,119 @@ export default function PlayerRoster({
                     <button
                       onClick={saveEdit}
                       disabled={!draft.name?.trim()}
-                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                      className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-semibold text-bg-primary disabled:opacity-40"
                     >
                       Save
                     </button>
                     <button
                       onClick={cancelEdit}
-                      className="rounded-lg bg-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-300"
+                      className="flex-1 rounded-xl bg-bg-elevated py-2.5 text-sm font-semibold text-text-secondary"
                     >
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between">
+                /* Display Mode */
+                <div
+                  className={`rounded-2xl border bg-bg-card p-4 transition hover:bg-bg-card-hover ${
+                    player.isInjured ? "border-danger/40" : "border-border-color"
+                  }`}
+                >
                   <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
-                      {index + 1}
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold"
+                        style={{
+                          backgroundColor: POSITION_GROUP_COLORS[player.positionGroup] + "20",
+                          color: POSITION_GROUP_COLORS[player.positionGroup],
+                          border: `2px solid ${POSITION_GROUP_COLORS[player.positionGroup]}60`,
+                        }}
+                      >
+                        {player.name ? player.name[0].toUpperCase() : "?"}
+                      </div>
+                      <div className="absolute -bottom-1 -right-1">
+                        <PositionBadge group={player.positionGroup} />
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-text-primary truncate">
                         {player.name || "Unnamed"}
-                        {player.isInjured && (
-                          <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-600">
-                            Injured
-                          </span>
-                        )}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {player.position}
-                        {player.desiredMinutes
-                          ? ` · ${player.desiredMinutes} min`
-                          : " · Equal share"}
-                      </p>
+                      {player.isGK ? (
+                        <p className="text-xs font-semibold text-gk flex items-center gap-1">
+                          ★ Primary Keeper
+                        </p>
+                      ) : (
+                        <p className="text-xs text-text-muted flex items-center gap-1">
+                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Target: {player.desiredMinutes ?? config.gameLengthMinutes} mins
+                        </p>
+                      )}
+                      {player.isInjured && (
+                        <p className="text-xs font-semibold text-danger mt-0.5">
+                          🚑 Injured
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* GK Toggle */}
+                      <div className="text-center">
+                        <button
+                          onClick={() => toggleGK(player.id)}
+                          disabled={!player.isGK && gkCount >= 1}
+                          className={`relative h-7 w-12 rounded-full transition-colors ${
+                            player.isGK ? "bg-gk" : "bg-bg-elevated"
+                          } disabled:opacity-30`}
+                        >
+                          <span
+                            className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
+                              player.isGK ? "translate-x-5.5" : "translate-x-0.5"
+                            }`}
+                          />
+                          {player.isGK && (
+                            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-gk text-[8px] text-white font-bold">
+                              🧤
+                            </span>
+                          )}
+                        </button>
+                        <p className="text-[9px] text-text-muted mt-1 uppercase tracking-wider">
+                          {player.isGK ? "GK Active" : "GK Status"}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+
+                  {/* Action row (on tap / hover) */}
+                  <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-border-color/50">
                     <button
                       onClick={() => startEdit(player)}
-                      className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
-                      title="Edit"
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-accent hover:bg-accent/10 transition"
                     >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
+                      Edit
                     </button>
                     <button
                       onClick={() => toggleInjured(player.id)}
-                      className={`rounded-lg p-2 transition ${
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                         player.isInjured
-                          ? "text-red-500 hover:bg-red-100"
-                          : "text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                          ? "text-danger hover:bg-danger/10"
+                          : "text-text-secondary hover:text-warning hover:bg-warning/10"
                       }`}
-                      title={player.isInjured ? "Mark fit" : "Mark injured"}
                     >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
+                      {player.isInjured ? "Mark Fit" : "Injury"}
                     </button>
                     <button
                       onClick={() => removePlayer(player.id)}
-                      className="rounded-lg p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-500"
-                      title="Remove"
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-danger hover:bg-danger/10 transition"
                     >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
+                      Remove
                     </button>
                   </div>
                 </div>
@@ -269,6 +371,17 @@ export default function PlayerRoster({
           ))}
         </div>
       )}
+
+      {/* FAB */}
+      <button
+        onClick={addPlayer}
+        className="fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-bg-primary shadow-lg shadow-accent/30 transition hover:bg-accent-dim active:scale-95"
+      >
+        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 8v4m2-2h-4" />
+        </svg>
+      </button>
     </div>
   );
 }
