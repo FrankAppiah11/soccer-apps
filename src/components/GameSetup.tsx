@@ -28,7 +28,7 @@ export default function GameSetup({
   const fieldSize = FIELD_SIZES[config.competitionType];
 
   return (
-    <div className="flex flex-col gap-6 pb-8 animate-slide-up">
+    <div className="flex flex-col gap-5 pb-28 animate-slide-up">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <h1 className="text-xl font-bold text-text-primary">Game Setup</h1>
@@ -69,7 +69,7 @@ export default function GameSetup({
             Competition Type
           </h3>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
           {COMPETITION_ORDER.map((type) => {
             const m = COMPETITION_META[type];
             const isSelected = config.competitionType === type;
@@ -80,7 +80,7 @@ export default function GameSetup({
                 onClick={() =>
                   onChange({ ...config, competitionType: type })
                 }
-                className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                className={`relative rounded-xl border-2 p-3 sm:p-4 text-left transition-all active:scale-[0.98] ${
                   isSelected
                     ? "border-accent bg-accent/10"
                     : "border-border-color bg-bg-card hover:border-border-color/80 hover:bg-bg-card-hover"
@@ -114,8 +114,8 @@ export default function GameSetup({
             {config.gameLengthMinutes} min
           </span>
         </div>
-        <div className="rounded-2xl border border-border-color bg-bg-card p-5">
-          <div className="flex items-center justify-center gap-6 mb-4">
+        <div className="rounded-2xl border border-border-color bg-bg-card p-4 sm:p-5">
+          <div className="flex items-center justify-center gap-5 sm:gap-6 mb-4">
             <button
               onClick={() =>
                 onChange({
@@ -123,15 +123,15 @@ export default function GameSetup({
                   gameLengthMinutes: Math.max(5, config.gameLengthMinutes - 5),
                 })
               }
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-elevated text-xl font-bold text-text-secondary hover:bg-bg-card-hover hover:text-text-primary transition"
+              className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-bg-elevated text-xl font-bold text-text-secondary hover:bg-bg-card-hover hover:text-text-primary transition active:scale-95"
             >
               −
             </button>
             <div className="text-center">
-              <p className="text-5xl font-bold text-text-primary tabular-nums">
+              <p className="text-4xl sm:text-5xl font-bold text-text-primary tabular-nums">
                 {config.gameLengthMinutes}
               </p>
-              <p className="text-xs uppercase tracking-wider text-text-muted mt-1">
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-muted mt-1">
                 Minutes
               </p>
             </div>
@@ -142,7 +142,7 @@ export default function GameSetup({
                   gameLengthMinutes: Math.min(120, config.gameLengthMinutes + 5),
                 })
               }
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-elevated text-xl font-bold text-text-secondary hover:bg-bg-card-hover hover:text-text-primary transition"
+              className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-bg-elevated text-xl font-bold text-text-secondary hover:bg-bg-card-hover hover:text-text-primary transition active:scale-95"
             >
               +
             </button>
@@ -176,23 +176,23 @@ export default function GameSetup({
           </h3>
         </div>
         <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-xl border border-border-color bg-bg-card p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
+          <div className="flex items-center justify-between rounded-xl border border-border-color bg-bg-card p-3.5 sm:p-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-text-primary">Equal Playtime</p>
-                <p className="text-xs text-text-muted">Auto-calculate sub intervals</p>
+                <p className="text-xs text-text-muted truncate">Auto-calculate sub intervals</p>
               </div>
             </div>
             <button
               onClick={() =>
                 onChange({ ...config, equalPlaytime: !config.equalPlaytime })
               }
-              className={`relative h-7 w-12 rounded-full transition-colors ${
+              className={`relative h-7 w-12 shrink-0 ml-3 rounded-full transition-colors ${
                 config.equalPlaytime ? "bg-accent" : "bg-bg-elevated"
               }`}
             >
@@ -204,23 +204,23 @@ export default function GameSetup({
             </button>
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-border-color bg-bg-card p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
+          <div className="flex items-center justify-between rounded-xl border border-border-color bg-bg-card p-3.5 sm:p-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-text-primary">Sub Alerts</p>
-                <p className="text-xs text-text-muted">Vibrate when it&apos;s time to swap</p>
+                <p className="text-xs text-text-muted truncate">Vibrate when it&apos;s time to swap</p>
               </div>
             </div>
             <button
               onClick={() =>
                 onChange({ ...config, subAlerts: !config.subAlerts })
               }
-              className={`relative h-7 w-12 rounded-full transition-colors ${
+              className={`relative h-7 w-12 shrink-0 ml-3 rounded-full transition-colors ${
                 config.subAlerts ? "bg-accent" : "bg-bg-elevated"
               }`}
             >
@@ -238,7 +238,7 @@ export default function GameSetup({
       <button
         onClick={onStartMatch}
         disabled={!canStart}
-        className="mt-2 flex items-center justify-center gap-2 rounded-2xl bg-accent py-4 text-base font-bold text-bg-primary shadow-lg shadow-accent/25 transition hover:bg-accent-dim disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
+        className="mt-2 flex items-center justify-center gap-2 rounded-2xl bg-accent py-4 text-base font-bold text-bg-primary shadow-lg shadow-accent/25 transition hover:bg-accent-dim active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
       >
         START MATCH ▶
       </button>

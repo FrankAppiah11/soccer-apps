@@ -143,7 +143,7 @@ export default function PlayerRoster({
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-24 animate-slide-up">
+    <div className="flex flex-col gap-4 pb-28 animate-slide-up">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
@@ -159,20 +159,23 @@ export default function PlayerRoster({
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar">
-        {FILTER_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setFilter(tab.value)}
-            className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${
-              filter === tab.value
-                ? "bg-accent text-bg-primary"
-                : "bg-bg-card text-text-secondary border border-border-color hover:bg-bg-card-hover"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="-mx-4 px-4 sm:-mx-5 sm:px-5">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setFilter(tab.value)}
+              className={`shrink-0 rounded-full px-4 py-2.5 text-xs font-semibold transition active:scale-95 ${
+                filter === tab.value
+                  ? "bg-accent text-bg-primary"
+                  : "bg-bg-card text-text-secondary border border-border-color hover:bg-bg-card-hover"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+          <div className="shrink-0 w-4" aria-hidden="true" />
+        </div>
       </div>
 
       {/* Squad info */}
@@ -201,7 +204,7 @@ export default function PlayerRoster({
             <div key={player.id} className="animate-slide-up">
               {editingId === player.id ? (
                 /* Edit Mode */
-                <div className="rounded-2xl border border-accent/40 bg-bg-card p-4 space-y-3">
+                <div className="rounded-2xl border border-accent/40 bg-bg-card p-3.5 sm:p-4 space-y-3">
                   <input
                     type="text"
                     autoFocus
@@ -340,27 +343,27 @@ export default function PlayerRoster({
                     </div>
                   </div>
 
-                  {/* Action row (on tap / hover) */}
-                  <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-border-color/50">
+                  {/* Action row */}
+                  <div className="flex items-center justify-end gap-1.5 mt-2 pt-2 border-t border-border-color/50">
                     <button
                       onClick={() => startEdit(player)}
-                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-accent hover:bg-accent/10 transition"
+                      className="min-h-[36px] rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-accent hover:bg-accent/10 active:bg-accent/15 transition"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => toggleInjured(player.id)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                      className={`min-h-[36px] rounded-lg px-3 py-2 text-xs font-medium transition ${
                         player.isInjured
-                          ? "text-danger hover:bg-danger/10"
-                          : "text-text-secondary hover:text-warning hover:bg-warning/10"
+                          ? "text-danger hover:bg-danger/10 active:bg-danger/15"
+                          : "text-text-secondary hover:text-warning hover:bg-warning/10 active:bg-warning/15"
                       }`}
                     >
                       {player.isInjured ? "Mark Fit" : "Injury"}
                     </button>
                     <button
                       onClick={() => removePlayer(player.id)}
-                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-danger hover:bg-danger/10 transition"
+                      className="min-h-[36px] rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-danger hover:bg-danger/10 active:bg-danger/15 transition"
                     >
                       Remove
                     </button>
@@ -375,7 +378,8 @@ export default function PlayerRoster({
       {/* FAB */}
       <button
         onClick={addPlayer}
-        className="fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-bg-primary shadow-lg shadow-accent/30 transition hover:bg-accent-dim active:scale-95"
+        className="fixed z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-bg-primary shadow-lg shadow-accent/30 transition hover:bg-accent-dim active:scale-90"
+        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", right: "1.25rem" }}
       >
         <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

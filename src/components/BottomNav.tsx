@@ -52,8 +52,11 @@ export default function BottomNav({
   isMatchLive,
 }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border-color bg-bg-secondary/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-lg items-center justify-around py-2">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border-color bg-bg-secondary/95 backdrop-blur-md"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
+      <div className="mx-auto flex max-w-lg items-center justify-around py-1.5">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           const label = isMatchLive && tab.liveLabel ? tab.liveLabel : tab.label;
@@ -61,7 +64,7 @@ export default function BottomNav({
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 transition ${
+              className={`flex min-h-[44px] min-w-[56px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 transition active:scale-95 ${
                 isActive ? "text-accent" : "text-text-muted hover:text-text-secondary"
               }`}
             >

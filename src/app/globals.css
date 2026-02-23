@@ -49,6 +49,11 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--bg-elevated) transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
 
 body {
@@ -56,6 +61,16 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 input[type="number"]::-webkit-inner-spin-button,

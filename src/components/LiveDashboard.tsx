@@ -62,7 +62,7 @@ function PlayerCard({
 
   return (
     <div
-      className={`rounded-2xl border p-4 transition ${
+      className={`rounded-2xl border p-3.5 sm:p-4 transition ${
         isSubReady
           ? "border-accent/60 bg-accent/5 pulse-glow"
           : "border-border-color bg-bg-card"
@@ -124,7 +124,7 @@ function PlayerCard({
                 const bestIn = benchPlayers[0];
                 if (bestIn) onSub(player.id, bestIn.id);
               }}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+              className={`min-h-[36px] rounded-xl px-3 py-2 text-xs font-bold transition active:scale-95 ${
                 isSubReady
                   ? "bg-accent text-bg-primary"
                   : "bg-bg-elevated text-text-secondary hover:bg-bg-card-hover"
@@ -136,7 +136,7 @@ function PlayerCard({
           {isOnField && (
             <button
               onClick={() => onInjury(player.id)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-danger/10 text-danger text-xs hover:bg-danger/20 transition"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-danger/10 text-danger text-xs hover:bg-danger/20 active:bg-danger/25 transition"
               title="Mark injured"
             >
               🚑
@@ -256,16 +256,16 @@ export default function LiveDashboard({
     totalGameSeconds;
 
   return (
-    <div className="flex flex-col gap-5 pb-24 animate-slide-up">
+    <div className="flex flex-col gap-5 pb-28 animate-slide-up">
       {/* Header */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span className="text-accent">⚽</span>
-          <h1 className="text-xl font-bold text-text-primary">Match Dashboard</h1>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-accent shrink-0">⚽</span>
+          <h1 className="text-lg sm:text-xl font-bold text-text-primary truncate">Match Dashboard</h1>
         </div>
         <button
           onClick={() => setShowEndConfirm(true)}
-          className="rounded-xl border border-danger/50 bg-danger/10 px-4 py-2 text-xs font-bold text-danger hover:bg-danger/20 transition"
+          className="shrink-0 rounded-xl border border-danger/50 bg-danger/10 px-3 sm:px-4 py-2 text-xs font-bold text-danger hover:bg-danger/20 active:bg-danger/25 transition"
         >
           END MATCH
         </button>
@@ -295,13 +295,13 @@ export default function LiveDashboard({
       )}
 
       {/* Live Clock */}
-      <div className="rounded-2xl border border-accent/20 bg-gradient-to-br from-accent/10 to-accent/5 p-5">
+      <div className="rounded-2xl border border-accent/20 bg-gradient-to-br from-accent/10 to-accent/5 p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-accent mb-1">
               Live Clock
             </p>
-            <p className="text-5xl font-bold text-text-primary tabular-nums tracking-tight">
+            <p className="text-4xl sm:text-5xl font-bold text-text-primary tabular-nums tracking-tight">
               {formatTime(elapsed)}
             </p>
             <p className="text-xs text-text-muted mt-1">
@@ -312,7 +312,7 @@ export default function LiveDashboard({
             {!matchState.isRunning ? (
               <button
                 onClick={startMatch}
-                className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-bg-primary shadow-lg shadow-accent/20"
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-bg-primary shadow-lg shadow-accent/20 active:scale-95"
               >
                 <svg className="h-5 w-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z" />

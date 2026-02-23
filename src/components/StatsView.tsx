@@ -21,7 +21,7 @@ export default function StatsView({
 }: StatsViewProps) {
   if (!matchState) {
     return (
-      <div className="flex flex-col gap-6 pb-24 animate-slide-up">
+      <div className="flex flex-col gap-6 pb-28 animate-slide-up">
         <h1 className="text-xl font-bold text-text-primary px-1">Stats</h1>
         <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border-color py-16 text-center">
           <p className="text-4xl mb-3">📊</p>
@@ -49,32 +49,32 @@ export default function StatsView({
   const totalSubs = matchState.substitutionLog.length;
 
   return (
-    <div className="flex flex-col gap-6 pb-24 animate-slide-up">
+    <div className="flex flex-col gap-5 pb-28 animate-slide-up">
       <h1 className="text-xl font-bold text-text-primary px-1">Stats</h1>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-border-color bg-bg-card p-3 text-center">
-          <p className="text-2xl font-bold text-accent tabular-nums">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="rounded-xl border border-border-color bg-bg-card p-2.5 sm:p-3 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-accent tabular-nums">
             {formatTime(elapsed)}
           </p>
-          <p className="text-[10px] text-text-muted uppercase tracking-wider">
+          <p className="text-[9px] sm:text-[10px] text-text-muted uppercase tracking-wider">
             Elapsed
           </p>
         </div>
-        <div className="rounded-xl border border-border-color bg-bg-card p-3 text-center">
-          <p className="text-2xl font-bold text-text-primary tabular-nums">
+        <div className="rounded-xl border border-border-color bg-bg-card p-2.5 sm:p-3 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-text-primary tabular-nums">
             {totalSubs}
           </p>
-          <p className="text-[10px] text-text-muted uppercase tracking-wider">
+          <p className="text-[9px] sm:text-[10px] text-text-muted uppercase tracking-wider">
             Subs Made
           </p>
         </div>
-        <div className="rounded-xl border border-border-color bg-bg-card p-3 text-center">
-          <p className="text-2xl font-bold text-text-primary tabular-nums">
+        <div className="rounded-xl border border-border-color bg-bg-card p-2.5 sm:p-3 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-text-primary tabular-nums">
             {playerStats.length}
           </p>
-          <p className="text-[10px] text-text-muted uppercase tracking-wider">
+          <p className="text-[9px] sm:text-[10px] text-text-muted uppercase tracking-wider">
             Players
           </p>
         </div>
@@ -133,16 +133,16 @@ export default function StatsView({
               return (
                 <div
                   key={sub.id}
-                  className="flex items-center gap-3 rounded-xl border border-border-color bg-bg-card px-4 py-3"
+                  className="flex items-center gap-2 sm:gap-3 rounded-xl border border-border-color bg-bg-card px-3 sm:px-4 py-3"
                 >
-                  <span className="rounded-full bg-bg-elevated px-2.5 py-0.5 text-xs font-bold text-text-secondary tabular-nums">
+                  <span className="shrink-0 rounded-full bg-bg-elevated px-2 py-0.5 text-[11px] font-bold text-text-secondary tabular-nums">
                     {formatTime(sub.timestamp)}
                   </span>
-                  <span className="text-sm text-danger font-medium">
+                  <span className="text-xs sm:text-sm text-danger font-medium truncate">
                     ▼ {outP?.name ?? "Unknown"}
                   </span>
-                  <span className="text-xs text-text-muted">→</span>
-                  <span className="text-sm text-accent font-medium">
+                  <span className="text-xs text-text-muted shrink-0">→</span>
+                  <span className="text-xs sm:text-sm text-accent font-medium truncate">
                     ▲ {inP?.name ?? "Unknown"}
                   </span>
                 </div>

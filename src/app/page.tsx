@@ -51,7 +51,7 @@ export default function Home() {
   return (
     <div className="flex min-h-dvh flex-col bg-bg-primary">
       {/* Main Content */}
-      <main className="mx-auto w-full max-w-lg flex-1 px-5 pt-6 pb-4">
+      <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-5 pb-4 sm:px-5">
         {activeTab === "setup" && (
           <GameSetup
             config={config}
