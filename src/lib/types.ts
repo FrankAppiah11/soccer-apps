@@ -94,8 +94,8 @@ export function getPositionGroup(pos: Position): PositionGroup {
 }
 
 export const POSITION_GROUP_COLORS: Record<PositionGroup, string> = {
-  GK: "#f59e0b",
-  DEF: "#3b82f6",
-  MID: "#22c55e",
-  FW: "#f97316",
+  GK: "#f5a623",
+  DEF: "#4a90d9",
+  MID: "#3cff5a",
+  FW: "#ff6b35",
 };
