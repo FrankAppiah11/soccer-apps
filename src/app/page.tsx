@@ -1,65 +1,111 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useCallback } from "react";
+import GameSetup from "@/components/GameSetup";
+import PlayerRoster from "@/components/PlayerRoster";
+import SubstitutionTimeline from "@/components/SubstitutionTimeline";
+import { Player, GameConfig, SubstitutionPlan, FIELD_SIZES } from "@/lib/types";
+import { generateSubstitutionPlan } from "@/lib/engine";
 
 export default function Home() {
+  const [config, setConfig] = useState<GameConfig>({
+    competitionType: "6v6",
+    gameLengthMinutes: 20,
+  });
+
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [plan, setPlan] = useState<SubstitutionPlan | null>(null);
+
+  const fieldSize = FIELD_SIZES[config.competitionType];
+  const activePlayers = players.filter((p) => !p.isInjured);
+  const namedPlayers = activePlayers.filter((p) => p.name.trim());
+  const canGenerate = namedPlayers.length >= fieldSize;
+
+  const handleGenerate = useCallback(() => {
+    const valid = players.filter((p) => p.name.trim());
+    const result = generateSubstitutionPlan(valid, config);
+    setPlan(result);
+  }, [players, config]);
+
+  const handleConfigChange = useCallback((newConfig: GameConfig) => {
+    setConfig(newConfig);
+    setPlan(null);
+  }, []);
+
+  const handlePlayersChange = useCallback((newPlayers: Player[]) => {
+    setPlayers(newPlayers);
+    setPlan(null);
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-emerald-50/30">
+      {/* Header */}
+      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-lg text-white">
+              &#9917;
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">SubManager</h1>
+              <p className="text-xs text-gray-500">
+                Fair substitutions for pickup games
+              </p>
+            </div>
+          </div>
+          {plan && (
+            <button
+              onClick={() => setPlan(null)}
+              className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-200"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              &#8592; Edit
+            </button>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+
+      <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
+        {!plan ? (
+          <>
+            <GameSetup config={config} onChange={handleConfigChange} />
+            <PlayerRoster
+              players={players}
+              competitionType={config.competitionType}
+              gameLengthMinutes={config.gameLengthMinutes}
+              onChange={handlePlayersChange}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+            {/* Generate button */}
+            <div className="flex flex-col items-center gap-2">
+              {!canGenerate && namedPlayers.length > 0 && (
+                <p className="text-sm text-amber-600">
+                  Need at least {fieldSize} active players for{" "}
+                  {config.competitionType} (have {namedPlayers.length})
+                </p>
+              )}
+              <button
+                onClick={handleGenerate}
+                disabled={!canGenerate}
+                className="rounded-xl bg-emerald-600 px-8 py-3 text-base font-semibold text-white shadow-lg shadow-emerald-600/25 transition hover:bg-emerald-700 hover:shadow-emerald-700/30 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+              >
+                Generate Substitution Plan
+              </button>
+              {canGenerate && (
+                <p className="text-xs text-gray-500">
+                  {namedPlayers.length} players &middot; {fieldSize} on field
+                  &middot; {config.gameLengthMinutes} min game
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          <SubstitutionTimeline plan={plan} config={config} />
+        )}
       </main>
+
+      <footer className="mt-auto border-t border-gray-200 bg-white/60 py-4 text-center text-xs text-gray-400">
+        SubManager &mdash; Equal play time, every game.
+      </footer>
     </div>
   );
 }
