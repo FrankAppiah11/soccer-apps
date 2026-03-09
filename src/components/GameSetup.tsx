@@ -4,6 +4,7 @@ import {
   CompetitionType,
   GameConfig,
   FIELD_SIZES,
+  estimatePlaytimeDistribution,
 } from "@/lib/types";
 import { useLanguage } from "@/lib/LanguageContext";
 
@@ -33,6 +34,21 @@ export default function GameSetup({
 }: GameSetupProps) {
   const { t } = useLanguage();
   const fieldSize = FIELD_SIZES[config.competitionType];
+
+  const isCustomRotation = config.rotationIntervalMinutes != null;
+  const autoInterval = playerCount > fieldSize
+    ? Math.floor(config.gameLengthMinutes / Math.ceil((playerCount) / fieldSize))
+    : config.gameLengthMinutes;
+  const effectiveInterval = config.rotationIntervalMinutes ?? autoInterval;
+
+  const distribution = estimatePlaytimeDistribution(
+    config.gameLengthMinutes,
+    config.rotationIntervalMinutes,
+    playerCount > 0 ? playerCount + 1 : 0,
+    fieldSize
+  );
+
+  const maxInterval = config.gameLengthMinutes;
 
   return (
     <div className="flex flex-col gap-5 pb-28 animate-slide-up">
@@ -156,6 +172,194 @@ export default function GameSetup({
           />
         </div>
       </div>
+
+      {/* Rotation Interval */}
+      <div>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <h3 className="text-base font-semibold text-text-primary">
+              {t("setup.rotationInterval")}
+            </h3>
+          </div>
+          <button
+            onClick={() => onChange({
+              ...config,
+              rotationIntervalMinutes: isCustomRotation ? null : autoInterval,
+            })}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+              isCustomRotation
+                ? "bg-warning/15 text-warning"
+                : "bg-accent/15 text-accent"
+            }`}
+          >
+            {isCustomRotation ? t("setup.rotationCustom") : t("setup.rotationAuto")}
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-border-color bg-bg-card p-4 sm:p-5">
+          <div className="flex items-center justify-center gap-5 sm:gap-6 mb-4">
+            <button
+              onClick={() => {
+                const next = Math.max(1, effectiveInterval - 1);
+                onChange({ ...config, rotationIntervalMinutes: next });
+              }}
+              className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-bg-elevated text-xl font-bold text-text-secondary hover:bg-bg-card-hover hover:text-text-primary transition active:scale-95"
+            >
+              −
+            </button>
+            <div className="text-center">
+              <p className={`text-4xl sm:text-5xl font-bold tabular-nums ${isCustomRotation ? "text-warning" : "text-text-primary"}`}>
+                {effectiveInterval}
+              </p>
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-muted mt-1">
+                {t("setup.minPerRotation")}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const next = Math.min(maxInterval, effectiveInterval + 1);
+                onChange({ ...config, rotationIntervalMinutes: next });
+              }}
+              className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-bg-elevated text-xl font-bold text-text-secondary hover:bg-bg-card-hover hover:text-text-primary transition active:scale-95"
+            >
+              +
+            </button>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={maxInterval}
+            step={1}
+            value={effectiveInterval}
+            onChange={(e) =>
+              onChange({ ...config, rotationIntervalMinutes: parseInt(e.target.value) })
+            }
+            className="w-full"
+          />
+          {isCustomRotation && (
+            <button
+              onClick={() => onChange({ ...config, rotationIntervalMinutes: null })}
+              className="mt-3 w-full rounded-lg bg-bg-elevated py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition"
+            >
+              {t("setup.resetToAuto")}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Play Time Distribution Preview */}
+      {playerCount > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <svg className="h-5 w-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <h3 className="text-base font-semibold text-text-primary">
+              {t("setup.playtimePreview")}
+            </h3>
+          </div>
+          <div className="rounded-2xl border border-border-color bg-bg-card p-4 sm:p-5">
+            {/* Summary stats */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="rounded-xl bg-bg-elevated p-3 text-center">
+                <p className="text-lg sm:text-xl font-bold text-accent tabular-nums">
+                  {distribution.minutesPerPlayer}
+                </p>
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-text-muted mt-0.5">
+                  {t("setup.minPerPlayer")}
+                </p>
+              </div>
+              <div className="rounded-xl bg-bg-elevated p-3 text-center">
+                <p className="text-lg sm:text-xl font-bold text-text-primary tabular-nums">
+                  {distribution.totalRotations}
+                </p>
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-text-muted mt-0.5">
+                  {t("setup.rotations")}
+                </p>
+              </div>
+              <div className="rounded-xl bg-bg-elevated p-3 text-center">
+                <p className="text-lg sm:text-xl font-bold text-text-primary tabular-nums">
+                  {distribution.benchSize}
+                </p>
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-text-muted mt-0.5">
+                  {t("setup.onBench")}
+                </p>
+              </div>
+            </div>
+
+            {/* Per-player bar visualization */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[10px] text-text-muted uppercase tracking-wider px-1">
+                <span>{t("setup.playerLabel")}</span>
+                <span>{t("setup.estPlaytime")}</span>
+              </div>
+
+              {/* GK bar — always full game */}
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 shrink-0 text-[10px] font-bold text-warning text-right">GK</span>
+                <div className="flex-1 h-5 rounded-md bg-bg-elevated overflow-hidden">
+                  <div
+                    className="h-full rounded-md bg-warning/60 transition-all duration-300"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+                <span className="w-12 shrink-0 text-right text-xs font-semibold text-text-secondary tabular-nums">
+                  {config.gameLengthMinutes}m
+                </span>
+              </div>
+
+              {/* Outfield players — show as a group (all equal when equal playtime) */}
+              {Array.from({ length: Math.min(playerCount, 12) }, (_, i) => {
+                const pct = config.gameLengthMinutes > 0
+                  ? Math.min(100, (distribution.minutesPerPlayer / config.gameLengthMinutes) * 100)
+                  : 0;
+                const isOnField = i < (fieldSize - 1);
+                return (
+                  <div key={i} className="flex items-center gap-2.5">
+                    <span className="w-8 shrink-0 text-[10px] font-bold text-text-muted text-right">
+                      P{i + 1}
+                    </span>
+                    <div className="flex-1 h-5 rounded-md bg-bg-elevated overflow-hidden">
+                      <div
+                        className={`h-full rounded-md transition-all duration-300 ${isOnField ? "bg-accent/50" : "bg-def/40"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="w-12 shrink-0 text-right text-xs font-semibold text-text-secondary tabular-nums">
+                      {distribution.minutesPerPlayer}m
+                    </span>
+                  </div>
+                );
+              })}
+              {playerCount > 12 && (
+                <p className="text-center text-[10px] text-text-muted">
+                  +{playerCount - 12} {t("setup.morePlayers")}
+                </p>
+              )}
+            </div>
+
+            {/* Fairness indicator */}
+            {distribution.benchSize > 0 && (
+              <div className={`mt-4 rounded-lg p-3 text-center text-xs font-medium ${
+                distribution.minutesPerPlayer >= config.gameLengthMinutes * 0.5
+                  ? "bg-accent/10 text-accent"
+                  : distribution.minutesPerPlayer >= config.gameLengthMinutes * 0.3
+                    ? "bg-warning/10 text-warning"
+                    : "bg-danger/10 text-danger"
+              }`}>
+                {distribution.minutesPerPlayer >= config.gameLengthMinutes * 0.5
+                  ? t("setup.fairnessGood")
+                  : distribution.minutesPerPlayer >= config.gameLengthMinutes * 0.3
+                    ? t("setup.fairnessOk")
+                    : t("setup.fairnessLow")}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Quick Rules */}
       <div>

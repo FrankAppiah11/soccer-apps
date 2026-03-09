@@ -9,6 +9,7 @@ create table if not exists public.game_configs (
   game_length_minutes integer not null default 20,
   equal_playtime boolean not null default true,
   sub_alerts boolean not null default false,
+  rotation_interval_minutes integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

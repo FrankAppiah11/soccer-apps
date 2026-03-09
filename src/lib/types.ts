@@ -32,6 +32,7 @@ export interface GameConfig {
   gameLengthMinutes: number;
   equalPlaytime: boolean;
   subAlerts: boolean;
+  rotationIntervalMinutes: number | null;
 }
 
 export interface SubstitutionEvent {
@@ -99,3 +100,33 @@ export const POSITION_GROUP_COLORS: Record<PositionGroup, string> = {
   MID: "#3cff5a",
   FW: "#ff6b35",
 };
+
+/**
+ * Estimates play time per outfield player given the game config and player count.
+ * Returns minutes each outfield player would get if rotations are evenly distributed.
+ */
+export function estimatePlaytimeDistribution(
+  gameLengthMinutes: number,
+  rotationIntervalMinutes: number | null,
+  totalPlayers: number,
+  fieldSize: number
+): { minutesPerPlayer: number; totalRotations: number; benchSize: number } {
+  if (totalPlayers <= 0 || fieldSize <= 0) {
+    return { minutesPerPlayer: 0, totalRotations: 0, benchSize: 0 };
+  }
+
+  const outfieldSlots = Math.max(1, fieldSize - 1);
+  const outfieldPlayers = Math.max(1, totalPlayers - 1);
+  const benchSize = Math.max(0, outfieldPlayers - outfieldSlots);
+
+  if (benchSize === 0) {
+    return { minutesPerPlayer: gameLengthMinutes, totalRotations: 0, benchSize: 0 };
+  }
+
+  const intervalMin = rotationIntervalMinutes ?? Math.floor(gameLengthMinutes / Math.ceil(outfieldPlayers / outfieldSlots));
+  const totalRotations = intervalMin > 0 ? Math.floor(gameLengthMinutes / intervalMin) : 0;
+  const totalOutfieldMinutes = gameLengthMinutes * outfieldSlots;
+  const minutesPerPlayer = Math.round((totalOutfieldMinutes / outfieldPlayers) * 10) / 10;
+
+  return { minutesPerPlayer, totalRotations, benchSize };
+}

@@ -1,19 +1,25 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let _supabase: SupabaseClient | null = null;
+let _supabaseServer: SupabaseClient | null = null;
 
+/**
+ * Server-side Supabase client using the service role key.
+ * Bypasses RLS — only use in API routes that already verify auth via Clerk.
+ */
 export function getSupabase(): SupabaseClient {
-  if (_supabase) return _supabase;
+  if (_supabaseServer) return _supabaseServer;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !key) {
+  if (!url || !serviceKey) {
     throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"
     );
   }
 
-  _supabase = createClient(url, key);
-  return _supabase;
+  _supabaseServer = createClient(url, serviceKey, {
+    auth: { persistSession: false },
+  });
+  return _supabaseServer;
 }

@@ -9,6 +9,7 @@ export interface Database {
           game_length_minutes: number;
           equal_playtime: boolean;
           sub_alerts: boolean;
+          rotation_interval_minutes: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -19,6 +20,7 @@ export interface Database {
           game_length_minutes: number;
           equal_playtime?: boolean;
           sub_alerts?: boolean;
+          rotation_interval_minutes?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -29,6 +31,7 @@ export interface Database {
           game_length_minutes?: number;
           equal_playtime?: boolean;
           sub_alerts?: boolean;
+          rotation_interval_minutes?: number | null;
           updated_at?: string;
         };
       };

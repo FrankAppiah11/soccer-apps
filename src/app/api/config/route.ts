@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         game_length_minutes: body.gameLengthMinutes,
         equal_playtime: body.equalPlaytime,
         sub_alerts: body.subAlerts,
+        rotation_interval_minutes: body.rotationIntervalMinutes ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.data.id)
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
       game_length_minutes: body.gameLengthMinutes,
       equal_playtime: body.equalPlaytime,
       sub_alerts: body.subAlerts,
+      rotation_interval_minutes: body.rotationIntervalMinutes ?? null,
     })
     .select()
     .single();

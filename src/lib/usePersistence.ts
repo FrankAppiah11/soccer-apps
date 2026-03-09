@@ -37,6 +37,7 @@ export function usePersistence(
               gameLengthMinutes: saved.game_length_minutes,
               equalPlaytime: saved.equal_playtime,
               subAlerts: saved.sub_alerts,
+              rotationIntervalMinutes: saved.rotation_interval_minutes ?? null,
             });
           }
         }
@@ -91,6 +92,7 @@ export function usePersistence(
               gameLengthMinutes: c.gameLengthMinutes,
               equalPlaytime: c.equalPlaytime,
               subAlerts: c.subAlerts,
+              rotationIntervalMinutes: c.rotationIntervalMinutes,
             }),
           });
         } catch {

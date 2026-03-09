@@ -21,6 +21,7 @@ function AppContent() {
     gameLengthMinutes: 20,
     equalPlaytime: true,
     subAlerts: false,
+    rotationIntervalMinutes: null,
   });
 
   const [players, setPlayers] = useState<Player[]>([]);

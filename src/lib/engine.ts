@@ -20,9 +20,15 @@ export function initializeMatch(
 
   const totalActive = activePlayers.length;
   const gameLengthSec = config.gameLengthMinutes * 60;
-  const rotationInterval = totalActive > fieldSize
-    ? Math.floor(gameLengthSec / Math.ceil(totalActive / fieldSize))
-    : gameLengthSec;
+
+  let rotationInterval: number;
+  if (config.rotationIntervalMinutes != null && config.rotationIntervalMinutes > 0) {
+    rotationInterval = config.rotationIntervalMinutes * 60;
+  } else if (totalActive > fieldSize) {
+    rotationInterval = Math.floor(gameLengthSec / Math.ceil(totalActive / fieldSize));
+  } else {
+    rotationInterval = gameLengthSec;
+  }
 
   const startingOutfield = outfield.slice(0, outfieldSlots);
   const benchOutfield = outfield.slice(outfieldSlots);
