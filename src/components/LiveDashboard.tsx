@@ -67,6 +67,30 @@ export default function LiveDashboard({ players, config, matchState, onMatchStat
     }
   }, [elapsed, totalGameSeconds, matchState, onMatchStateChange]);
 
+  // Vibrate when any on-field player exceeds their rotation interval
+  const lastVibrateRef = useRef(0);
+  useEffect(() => {
+    if (!config.subAlerts || !matchState.isRunning || matchState.isPaused) return;
+    if (sortedBench.length === 0) return;
+
+    const now = Date.now();
+    if (now - lastVibrateRef.current < 15000) return;
+
+    const hasSubReady = matchState.onFieldIds.some((id) => {
+      const p = players.find((pl) => pl.id === id);
+      const ps = matchState.playerStates[id];
+      if (!p || p.isGK || !ps || ps.currentStintStart === null) return false;
+      return (elapsed - ps.currentStintStart) >= ps.rotationIntervalSeconds;
+    });
+
+    if (hasSubReady) {
+      lastVibrateRef.current = now;
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate([200, 100, 200]);
+      }
+    }
+  }, [elapsed, config.subAlerts, matchState, players, sortedBench.length]);
+
   function togglePause() { onMatchStateChange({ ...matchState, isPaused: !matchState.isPaused, isRunning: true }); }
   function startMatch() { onMatchStateChange({ ...matchState, isRunning: true, isPaused: false }); }
 
