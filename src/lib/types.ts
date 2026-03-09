@@ -50,6 +50,7 @@ export interface LivePlayerState {
   totalSecondsPlayed: number;
   currentStintStart: number | null;
   rotationIntervalSeconds: number;
+  subCount: number;
 }
 
 export interface MatchState {

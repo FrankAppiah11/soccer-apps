@@ -50,6 +50,7 @@ export function initializeMatch(
       totalSecondsPlayed: 0,
       currentStintStart: onFieldIds.includes(p.id) ? 0 : null,
       rotationIntervalSeconds: rotationInterval,
+      subCount: 0,
     };
   }
 
@@ -84,12 +85,14 @@ export function performSubstitution(
         ? elapsed - outState.currentStintStart
         : 0),
     currentStintStart: null,
+    subCount: outState.subCount + 1,
   };
 
   const updatedInState: LivePlayerState = {
     ...inState,
     isOnField: true,
     currentStintStart: elapsed,
+    subCount: inState.subCount + 1,
   };
 
   const subEvent: SubstitutionEvent = {
@@ -133,6 +136,7 @@ export function undoLastSubstitution(state: MatchState): MatchState {
     ...outState,
     isOnField: true,
     currentStintStart: elapsed,
+    subCount: Math.max(0, outState.subCount - 1),
   };
 
   const restoredInState: LivePlayerState = {
@@ -144,6 +148,7 @@ export function undoLastSubstitution(state: MatchState): MatchState {
         ? elapsed - inState.currentStintStart
         : 0),
     currentStintStart: null,
+    subCount: Math.max(0, inState.subCount - 1),
   };
 
   return {

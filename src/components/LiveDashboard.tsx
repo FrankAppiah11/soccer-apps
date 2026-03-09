@@ -13,6 +13,7 @@ import {
   undoLastSubstitution,
   getPlayerPlayedSeconds,
   formatTime,
+  getNextSubSuggestion,
 } from "@/lib/engine";
 import { useLanguage } from "@/lib/LanguageContext";
 
@@ -24,92 +25,12 @@ interface LiveDashboardProps {
   onEndMatch: () => void;
 }
 
-function PlayerCard({
-  player, pState, elapsed, rotationInterval, isOnField, benchPlayers, onSub, onInjury,
-  tSubReady, tSubNow, tSub, tPlayed,
-}: {
-  player: Player;
-  pState: { totalSecondsPlayed: number; currentStintStart: number | null; rotationIntervalSeconds: number };
-  elapsed: number;
-  rotationInterval: number;
-  isOnField: boolean;
-  benchPlayers: Player[];
-  onSub: (outId: string, inId: string) => void;
-  onInjury: (id: string) => void;
-  tSubReady: string;
-  tSubNow: string;
-  tSub: string;
-  tPlayed: string;
-}) {
-  const played = getPlayerPlayedSeconds({ ...pState, isOnField, playerId: player.id }, elapsed);
-  const currentStint = isOnField && pState.currentStintStart !== null ? elapsed - pState.currentStintStart : 0;
-  const progress = rotationInterval > 0 ? Math.min(1, currentStint / rotationInterval) : 0;
-  const isSubReadyState = isOnField && !player.isGK && currentStint >= rotationInterval && benchPlayers.length > 0;
-  const barColor = player.isGK ? "bg-gk" : isSubReadyState ? "bg-accent" : "bg-accent/60";
-
-  return (
-    <div className={`rounded-2xl border p-3.5 sm:p-4 transition ${isSubReadyState ? "border-accent/60 bg-accent/5 pulse-glow" : "border-border-color bg-bg-card"}`}>
-      <div className="flex items-center gap-3">
-        <div className="relative shrink-0">
-          <div
-            className="flex h-11 w-11 items-center justify-center rounded-full text-base font-bold"
-            style={{
-              backgroundColor: POSITION_GROUP_COLORS[player.positionGroup] + "20",
-              color: POSITION_GROUP_COLORS[player.positionGroup],
-              border: `2px solid ${POSITION_GROUP_COLORS[player.positionGroup]}50`,
-            }}
-          >
-            {player.name[0]?.toUpperCase()}
-          </div>
-          {player.isGK && (
-            <div className="absolute -top-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-gk text-[8px]">🔒</div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-text-primary truncate">
-              {player.name}
-              {player.isGK && <span className="text-text-muted font-normal"> (GK)</span>}
-            </p>
-            {isSubReadyState && (
-              <span className="shrink-0 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">{tSubReady}</span>
-            )}
-          </div>
-          <p className="text-xs text-text-muted tabular-nums">
-            {isOnField
-              ? `${formatTime(currentStint)} / ${formatTime(rotationInterval)}`
-              : tPlayed}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isOnField && !player.isGK && benchPlayers.length > 0 && (
-            <button
-              onClick={() => { const best = benchPlayers[0]; if (best) onSub(player.id, best.id); }}
-              className={`min-h-[36px] rounded-xl px-3 py-2 text-xs font-bold transition active:scale-95 ${isSubReadyState ? "bg-accent text-bg-primary" : "bg-bg-elevated text-text-secondary hover:bg-bg-card-hover"}`}
-            >
-              {isSubReadyState ? tSubNow : tSub}
-            </button>
-          )}
-          {isOnField && (
-            <button onClick={() => onInjury(player.id)} className="flex h-9 w-9 items-center justify-center rounded-lg bg-danger/10 text-danger text-xs hover:bg-danger/20 active:bg-danger/25 transition" title="Injury">
-              🚑
-            </button>
-          )}
-        </div>
-      </div>
-      {isOnField && (
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">
-          <div className={`h-full rounded-full transition-all duration-1000 ${barColor}`} style={{ width: `${Math.min(progress * 100, 100)}%` }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function LiveDashboard({ players, config, matchState, onMatchStateChange, onEndMatch }: LiveDashboardProps) {
   const { t } = useLanguage();
   const fieldSize = FIELD_SIZES[config.competitionType];
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [selectedOutId, setSelectedOutId] = useState<string | null>(null);
+  const [selectedInId, setSelectedInId] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalGameSeconds = config.gameLengthMinutes * 60;
   const elapsed = matchState.elapsedSeconds;
@@ -122,6 +43,12 @@ export default function LiveDashboard({ players, config, matchState, onMatchStat
     getPlayerPlayedSeconds(matchState.playerStates[a.id], elapsed) -
     getPlayerPlayedSeconds(matchState.playerStates[b.id], elapsed)
   );
+
+  const suggestion = getNextSubSuggestion(matchState, players);
+
+  // Auto-apply suggestion when no manual selection is active
+  const effectiveOutId = selectedOutId ?? suggestion?.outId ?? null;
+  const effectiveInId = selectedInId ?? suggestion?.inId ?? null;
 
   const tick = useCallback(() => {
     onMatchStateChange({ ...matchState, elapsedSeconds: matchState.elapsedSeconds + 1 });
@@ -142,16 +69,46 @@ export default function LiveDashboard({ players, config, matchState, onMatchStat
 
   function togglePause() { onMatchStateChange({ ...matchState, isPaused: !matchState.isPaused, isRunning: true }); }
   function startMatch() { onMatchStateChange({ ...matchState, isRunning: true, isPaused: false }); }
-  function handleSub(outId: string, inId: string) { onMatchStateChange(performSubstitution(matchState, outId, inId)); }
-  function handleUndo() { onMatchStateChange(undoLastSubstitution(matchState)); }
+
+  function handleConfirmSub() {
+    if (!effectiveOutId || !effectiveInId) return;
+    onMatchStateChange(performSubstitution(matchState, effectiveOutId, effectiveInId));
+    setSelectedOutId(null);
+    setSelectedInId(null);
+  }
+
+  function handleQuickSub(outId: string, inId: string) {
+    onMatchStateChange(performSubstitution(matchState, outId, inId));
+    setSelectedOutId(null);
+    setSelectedInId(null);
+  }
+
+  function handleUndo() {
+    onMatchStateChange(undoLastSubstitution(matchState));
+    setSelectedOutId(null);
+    setSelectedInId(null);
+  }
+
   function handleInjury(id: string) {
     if (sortedBench.length === 0) return;
     onMatchStateChange(performSubstitution(matchState, id, sortedBench[0].id));
   }
 
+  function toggleSelectOut(id: string) {
+    setSelectedOutId(prev => prev === id ? null : id);
+  }
+
+  function toggleSelectIn(id: string) {
+    setSelectedInId(prev => prev === id ? null : id);
+  }
+
   const onFieldPlayers = matchState.onFieldIds.map((id) => players.find((p) => p.id === id)).filter((p): p is Player => !!p);
   const benchPlayersAll = matchState.benchIds.map((id) => players.find((p) => p.id === id)).filter((p): p is Player => !!p);
   const rotationInterval = Object.values(matchState.playerStates)[0]?.rotationIntervalSeconds ?? totalGameSeconds;
+
+  const hasPendingSub = effectiveOutId && effectiveInId;
+  const outPlayer = effectiveOutId ? players.find(p => p.id === effectiveOutId) : null;
+  const inPlayer = effectiveInId ? players.find(p => p.id === effectiveInId) : null;
 
   return (
     <div className="flex flex-col gap-5 pb-28 animate-slide-up">
@@ -190,7 +147,7 @@ export default function LiveDashboard({ players, config, matchState, onMatchStat
                 <svg className="h-5 w-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
               </button>
             ) : (
-              <button onClick={togglePause} className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-lg ${matchState.isPaused ? "bg-accent text-bg-primary shadow-accent/20" : "bg-bg-elevated text-text-primary shadow-black/10"}`}>
+              <button onClick={togglePause} className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-lg active:scale-95 ${matchState.isPaused ? "bg-accent text-bg-primary shadow-accent/20" : "bg-bg-elevated text-text-primary shadow-black/10"}`}>
                 {matchState.isPaused ? (
                   <svg className="h-5 w-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                 ) : (
@@ -205,6 +162,59 @@ export default function LiveDashboard({ players, config, matchState, onMatchStat
         </div>
       </div>
 
+      {/* Suggested Sub Banner */}
+      {hasPendingSub && sortedBench.length > 0 && (
+        <div className="rounded-2xl border-2 border-accent/40 bg-accent/5 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">{t("live.suggestedSub")}</p>
+          <div className="flex items-center gap-3 mb-3">
+            {/* Player Out */}
+            <div className="flex-1 flex items-center gap-2 rounded-xl bg-danger/10 border border-danger/20 p-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                style={{ backgroundColor: outPlayer ? POSITION_GROUP_COLORS[outPlayer.positionGroup] + "20" : "#333", color: outPlayer ? POSITION_GROUP_COLORS[outPlayer.positionGroup] : "#999" }}>
+                {outPlayer?.name[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-text-primary truncate">{outPlayer?.name ?? "—"}</p>
+                <p className="text-[10px] text-danger">▼ {t("live.out")}</p>
+              </div>
+            </div>
+
+            <svg className="h-5 w-5 shrink-0 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+
+            {/* Player In */}
+            <div className="flex-1 flex items-center gap-2 rounded-xl bg-accent/10 border border-accent/20 p-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                style={{ backgroundColor: inPlayer ? POSITION_GROUP_COLORS[inPlayer.positionGroup] + "20" : "#333", color: inPlayer ? POSITION_GROUP_COLORS[inPlayer.positionGroup] : "#999" }}>
+                {inPlayer?.name[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-text-primary truncate">{inPlayer?.name ?? "—"}</p>
+                <p className="text-[10px] text-accent">▲ {t("live.in")}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleConfirmSub}
+              className="flex-1 rounded-xl bg-accent py-3 text-sm font-bold text-bg-primary active:scale-[0.98] transition"
+            >
+              {t("live.confirmSub")}
+            </button>
+            {(selectedOutId || selectedInId) && (
+              <button
+                onClick={() => { setSelectedOutId(null); setSelectedInId(null); }}
+                className="rounded-xl bg-bg-elevated px-4 py-3 text-sm font-medium text-text-secondary active:scale-95 transition"
+              >
+                {t("live.resetSelection")}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* On Field */}
       <div>
         <div className="flex items-center justify-between mb-3 px-1">
@@ -215,15 +225,96 @@ export default function LiveDashboard({ players, config, matchState, onMatchStat
           <p className="text-xs text-text-muted">{t("live.rotationInterval", { time: formatTime(rotationInterval) })}</p>
         </div>
         <div className="space-y-3">
-          {onFieldPlayers.map((player) => (
-            <PlayerCard
-              key={player.id} player={player} pState={matchState.playerStates[player.id]}
-              elapsed={elapsed} rotationInterval={rotationInterval} isOnField={true}
-              benchPlayers={sortedBench} onSub={handleSub} onInjury={handleInjury}
-              tSubReady={t("live.subReady")} tSubNow={t("live.subNow")} tSub={t("live.sub")}
-              tPlayed={t("live.played", { time: formatTime(getPlayerPlayedSeconds(matchState.playerStates[player.id], elapsed)) })}
-            />
-          ))}
+          {onFieldPlayers.map((player) => {
+            const pState = matchState.playerStates[player.id];
+            const played = getPlayerPlayedSeconds({ ...pState, isOnField: true, playerId: player.id }, elapsed);
+            const currentStint = pState.currentStintStart !== null ? elapsed - pState.currentStintStart : 0;
+            const progress = rotationInterval > 0 ? Math.min(1, currentStint / rotationInterval) : 0;
+            const isSubReady = !player.isGK && currentStint >= rotationInterval && sortedBench.length > 0;
+            const isSelected = effectiveOutId === player.id;
+            const isSuggested = suggestion?.outId === player.id && !selectedOutId;
+            const neverSubbed = pState.subCount === 0;
+
+            return (
+              <div
+                key={player.id}
+                onClick={() => { if (!player.isGK) toggleSelectOut(player.id); }}
+                className={`rounded-2xl border p-3.5 sm:p-4 transition cursor-pointer ${
+                  isSelected
+                    ? "border-danger/60 bg-danger/5 ring-1 ring-danger/30"
+                    : isSubReady
+                      ? "border-accent/60 bg-accent/5 pulse-glow"
+                      : "border-border-color bg-bg-card hover:bg-bg-card-hover"
+                } ${player.isGK ? "cursor-default opacity-80" : ""}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative shrink-0">
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-base font-bold"
+                      style={{
+                        backgroundColor: POSITION_GROUP_COLORS[player.positionGroup] + "20",
+                        color: POSITION_GROUP_COLORS[player.positionGroup],
+                        border: `2px solid ${POSITION_GROUP_COLORS[player.positionGroup]}50`,
+                      }}
+                    >
+                      {player.name[0]?.toUpperCase()}
+                    </div>
+                    {player.isGK && (
+                      <div className="absolute -top-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-gk text-[8px]">🔒</div>
+                    )}
+                    {/* Sub count badge */}
+                    {pState.subCount > 0 && (
+                      <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-bg-primary">
+                        {pState.subCount}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-text-primary truncate">
+                        {player.name}
+                        {player.isGK && <span className="text-text-muted font-normal"> (GK)</span>}
+                      </p>
+                      {neverSubbed && !player.isGK && (
+                        <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-[9px] font-bold text-warning">{t("live.noSubs")}</span>
+                      )}
+                      {isSubReady && (
+                        <span className="shrink-0 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">{t("live.subReady")}</span>
+                      )}
+                      {isSuggested && !isSubReady && (
+                        <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[9px] font-bold text-accent/70">{t("live.suggested")}</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-muted tabular-nums">
+                      {formatTime(currentStint)} / {formatTime(rotationInterval)}
+                      <span className="text-text-muted/50"> · </span>
+                      {t("live.totalPlayed", { time: formatTime(played) })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!player.isGK && sortedBench.length > 0 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleQuickSub(player.id, sortedBench[0].id); }}
+                        className={`min-h-[36px] rounded-xl px-3 py-2 text-xs font-bold transition active:scale-95 ${isSubReady ? "bg-accent text-bg-primary" : "bg-bg-elevated text-text-secondary hover:bg-bg-card-hover"}`}
+                      >
+                        {isSubReady ? t("live.subNow") : t("live.sub")}
+                      </button>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); handleInjury(player.id); }} className="flex h-9 w-9 items-center justify-center rounded-lg bg-danger/10 text-danger text-xs hover:bg-danger/20 active:bg-danger/25 transition" title="Injury">
+                      🚑
+                    </button>
+                  </div>
+                </div>
+                {/* Progress bar */}
+                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">
+                  <div
+                    className={`h-full rounded-full transition-all duration-1000 ${player.isGK ? "bg-gk" : isSubReady ? "bg-accent" : "bg-accent/60"}`}
+                    style={{ width: `${Math.min(progress * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -240,18 +331,57 @@ export default function LiveDashboard({ players, config, matchState, onMatchStat
             {benchPlayersAll.map((player) => {
               const pState = matchState.playerStates[player.id];
               if (!pState) return null;
-              const restTime = pState.currentStintStart === null ? elapsed - (pState.totalSecondsPlayed > 0 ? pState.totalSecondsPlayed : 0) : 0;
+              const played = getPlayerPlayedSeconds(pState, elapsed);
+              const restStart = pState.currentStintStart === null && pState.totalSecondsPlayed > 0
+                ? elapsed - pState.totalSecondsPlayed
+                : 0;
+              const isSelected = effectiveInId === player.id;
+              const isSuggested = suggestion?.inId === player.id && !selectedInId;
+              const neverSubbed = pState.subCount === 0;
+
               return (
-                <div key={player.id} className="flex items-center justify-between rounded-2xl border border-border-color bg-bg-card p-4">
+                <div
+                  key={player.id}
+                  onClick={() => { if (!player.isInjured) toggleSelectIn(player.id); }}
+                  className={`flex items-center justify-between rounded-2xl border p-4 transition cursor-pointer ${
+                    isSelected
+                      ? "border-accent/60 bg-accent/5 ring-1 ring-accent/30"
+                      : "border-border-color bg-bg-card hover:bg-bg-card-hover"
+                  } ${player.isInjured ? "cursor-default opacity-50" : ""}`}
+                >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold opacity-60"
-                      style={{ backgroundColor: POSITION_GROUP_COLORS[player.positionGroup] + "15", color: POSITION_GROUP_COLORS[player.positionGroup] }}>
-                      {player.name[0]?.toUpperCase()}
+                    <div className="relative">
+                      <div
+                        className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${neverSubbed ? "opacity-100" : "opacity-60"}`}
+                        style={{ backgroundColor: POSITION_GROUP_COLORS[player.positionGroup] + "15", color: POSITION_GROUP_COLORS[player.positionGroup] }}
+                      >
+                        {player.name[0]?.toUpperCase()}
+                      </div>
+                      {pState.subCount > 0 && (
+                        <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-bg-primary">
+                          {pState.subCount}
+                        </div>
+                      )}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-text-primary">{player.name}</p>
-                      <p className="text-xs text-text-muted uppercase tracking-wider">
-                        {player.isInjured ? t("roster.injured") : t("live.resting", { time: formatTime(restTime > 0 ? restTime : 0) })}
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-text-primary">{player.name}</p>
+                        {neverSubbed && (
+                          <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-[9px] font-bold text-warning">{t("live.noSubs")}</span>
+                        )}
+                        {isSuggested && (
+                          <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[9px] font-bold text-accent/70">{t("live.suggested")}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-muted uppercase tracking-wider tabular-nums">
+                        {player.isInjured
+                          ? t("roster.injured")
+                          : played > 0
+                            ? t("live.played", { time: formatTime(played) })
+                            : t("live.waitingForSub")}
+                        {pState.subCount > 0 && (
+                          <span className="text-text-muted/50"> · {t("live.subRate", { count: pState.subCount })}</span>
+                        )}
                       </p>
                     </div>
                   </div>

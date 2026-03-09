@@ -93,6 +93,16 @@ const translations = {
   "live.bench": { en: "Bench", es: "Banca" },
   "live.noBench": { en: "No bench players", es: "Sin jugadores en banca" },
   "live.resting": { en: "Resting: {time}", es: "Descansando: {time}" },
+  "live.suggestedSub": { en: "Suggested Substitution", es: "Cambio Sugerido" },
+  "live.out": { en: "OUT", es: "SALE" },
+  "live.in": { en: "IN", es: "ENTRA" },
+  "live.confirmSub": { en: "CONFIRM SUB ✓", es: "CONFIRMAR CAMBIO ✓" },
+  "live.resetSelection": { en: "Reset", es: "Resetear" },
+  "live.noSubs": { en: "No subs", es: "Sin cambios" },
+  "live.suggested": { en: "Suggested", es: "Sugerido" },
+  "live.totalPlayed": { en: "Total: {time}", es: "Total: {time}" },
+  "live.waitingForSub": { en: "Waiting for sub", es: "Esperando cambio" },
+  "live.subRate": { en: "{count}× subbed", es: "{count}× cambiado" },
   "live.undoSub": { en: "Undo Sub", es: "Deshacer Cambio" },
 
   // Stats
